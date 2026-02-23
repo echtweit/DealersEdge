@@ -60,10 +60,13 @@ def analyze_straddles(
 
     total = regime_score + iv_score + catalyst_score + structural_score
 
-    # --- VRP Headwind (Bakshi "Dark Matter" paper) ---
-    # Straddles have structurally negative risk premiums:
-    # ~-10% for weeklies, ~-19% for monthlies on average.
-    # The score must clear a VRP drag threshold before recommending.
+    # --- VRP Adjustment ---
+    # Bakshi & Kapadia (2003) documented a structurally negative VRP, but
+    # Dew-Becker & Giglio (Chicago Fed WP 2025-17) show index option alphas
+    # have converged to zero over the past 15 years as intermediary frictions
+    # declined. We retain VRP as a signal but with reduced penalties —
+    # extreme premiums still matter, but the "structural headwind" is weaker
+    # than the original Dark Matter thesis suggested.
     vrp = vrp_data or {}
     vrp_ctx = vrp.get("context", "N/A")
     vrp_adj = vrp.get("vrp_gex_adjusted", 0)
@@ -71,17 +74,17 @@ def analyze_straddles(
     vrp_headwind_note = ""
 
     if vrp_ctx == "HIGH_PREMIUM":
-        vrp_drag = -12
-        vrp_headwind_note = f"Structural VRP headwind ({vrp_adj:+.1f} var pts) — straddles are deeply negative-EV at current pricing"
+        vrp_drag = -6
+        vrp_headwind_note = f"Elevated VRP ({vrp_adj:+.1f} var pts) — IV well above GEX-implied realized vol, entry is expensive"
     elif vrp_ctx == "MODERATE_PREMIUM":
-        vrp_drag = -7
-        vrp_headwind_note = f"Moderate VRP drag ({vrp_adj:+.1f}) — need strong catalyst to overcome structural premium"
-    elif vrp_ctx == "SMALL_PREMIUM":
         vrp_drag = -3
-        vrp_headwind_note = "Small VRP cost — manageable with regime support"
+        vrp_headwind_note = f"Moderate VRP ({vrp_adj:+.1f}) — slightly overpaying but manageable with catalyst"
+    elif vrp_ctx == "SMALL_PREMIUM":
+        vrp_drag = -1
+        vrp_headwind_note = "Small VRP cost — near fair value"
     elif vrp_ctx == "DISCOUNT":
-        vrp_drag = 8
-        vrp_headwind_note = f"Negative VRP ({vrp_adj:+.1f}) — rare: options are cheap vs GEX-implied vol"
+        vrp_drag = 10
+        vrp_headwind_note = f"Negative VRP ({vrp_adj:+.1f}) — options are cheap vs GEX-implied vol, favorable entry"
 
     total += vrp_drag
 

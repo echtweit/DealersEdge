@@ -347,10 +347,17 @@ def _compute_vrp(
     gex_regime: str, total_gex: float, reynolds_regime: str,
 ) -> dict:
     """
-    Variance Risk Premium: the structural premium option buyers pay over
-    fair value. VRP = IV² - HV² (annualized variance terms).
+    Variance Risk Premium: the gap between implied and realized variance.
+    VRP = IV² - HV² (annualized variance terms).
 
-    GEX-Implied Vol Adjustment (from Deep Hedging / Bakshi):
+    Note: Bakshi & Kapadia (2003) documented a structurally negative VRP,
+    but Dew-Becker & Giglio (Chicago Fed WP 2025-17) show that index
+    option alphas have converged to ~zero over the past 15 years as
+    intermediary frictions declined. VRP remains useful as a relative
+    measure of whether current IV is rich or cheap vs. recent realized
+    vol, but should not be treated as a guaranteed structural headwind.
+
+    GEX-Implied Vol Adjustment (from Barbon & Buraschi "Gamma Fragility"):
     When dealers are long gamma (positive GEX), they dampen realized vol
     by ~15-25% via mechanical hedging. When short gamma (negative GEX),
     they amplify realized vol by ~10-15%. This creates a GEX-adjusted
@@ -504,7 +511,10 @@ def _compute_vol_edge(iv_hv: dict, skew: dict, term: dict, dte: int, vrp: dict =
     elif hv_pctl > 80:
         factors.append("Realized vol already elevated — may be peaking")
 
-    # VRP adjustment (weight: 15%) — from Bakshi "Dark Matter" paper
+    # VRP adjustment (weight: 10%) — relative IV vs GEX-implied realized vol.
+    # Reduced from original 15% weight: Dew-Becker & Giglio (2025) show
+    # the structural VRP has largely disappeared; we keep it as a relative
+    # richness/cheapness signal, not a structural headwind.
     if vrp and vrp.get("context") != "N/A":
         vrp_adj = vrp.get("vrp_gex_adjusted", 0)
         vrp_ctx = vrp.get("context", "FAIR")
@@ -517,11 +527,11 @@ def _compute_vol_edge(iv_hv: dict, skew: dict, term: dict, dte: int, vrp: dict =
         elif vrp_ctx == "SMALL_PREMIUM":
             score += 3
         elif vrp_ctx == "MODERATE_PREMIUM":
-            score -= 5
-            factors.append(f"Moderate VRP headwind ({vrp_adj:+.1f}) — paying above expected delivery")
+            score -= 3
+            factors.append(f"Moderate VRP ({vrp_adj:+.1f}) — IV somewhat rich vs expected delivery")
         elif vrp_ctx == "HIGH_PREMIUM":
-            score -= 10
-            factors.append(f"Large VRP headwind ({vrp_adj:+.1f}) — structurally overpaying for vol")
+            score -= 5
+            factors.append(f"Elevated VRP ({vrp_adj:+.1f}) — IV well above GEX-implied vol")
 
     score = max(0, min(100, score))
 

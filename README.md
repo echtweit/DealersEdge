@@ -321,7 +321,7 @@ P(T ≤ DTE) = erfc(L / (σ · √(2·DTE)))
 ### 7. Volatility Analysis (IV/HV, Term Structure, Skew, VRP)
 
 **What it measures:** Whether options are cheap or expensive, whether you should
-buy naked or use spreads, and the structural headwind from variance risk premium.
+buy naked or use spreads, and the relative richness/cheapness of implied vol.
 
 Four sub-analyses answer pre-entry questions:
 
@@ -336,8 +336,8 @@ is normal. Backwardation (front > back) signals near-term event risk or fear.
 downside protection is expensive (fear). CALL_SKEW means upside is being bid
 (unusual, often bullish signal).
 
-**Variance Risk Premium (VRP):** The structural gap between implied and realized
-variance, adjusted for dealer positioning:
+**Variance Risk Premium (VRP):** The gap between implied and realized variance,
+adjusted for dealer positioning:
 
 ```
 VRP = (IV² − HV²) × 100
@@ -346,14 +346,28 @@ VRP_adj = IV² − (HV × GEX_mult)²
 
 Dealers dampen realized vol by 15–25% when long gamma (mult 0.78–0.88) and
 amplify it by 8–15% when short gamma (mult 1.08–1.15). This adjustment reveals
-the *true* VRP after accounting for the dealer's stabilizing/destabilizing effect.
+the true VRP after accounting for the dealer's stabilizing/destabilizing effect.
+
+**Important update — structural VRP has weakened:** Bakshi & Kapadia (2003)
+originally documented a consistently negative VRP (options systematically
+overpriced). However, Dew-Becker & Giglio (Chicago Fed WP 2025-17) show that
+equity index option alphas have become "indistinguishable from zero" over the
+past 15 years, driven by declining intermediary frictions rather than changing
+investor preferences. Our scoring reflects this: VRP is used as a *relative*
+richness signal (is IV currently elevated vs. GEX-adjusted realized vol?), not
+as a structural headwind assumption. The straddle analyzer's VRP penalty has
+been halved from its original values.
 
 **References:**
 - Bakshi & Kapadia, ["Delta-Hedged Gains and the Negative Market Volatility Risk
   Premium"](https://doi.org/10.1093/rfs/hhg002) (Review of Financial Studies 16(2), 2003) —
-  establishes that delta-hedged option portfolios systematically lose money, proving a
-  negative market volatility risk premium. Directly informs our VRP calculation and the
-  straddle analyzer's structural headwind scoring.
+  foundational paper documenting the negative VRP. Still valid as context for
+  *why* selling vol was historically profitable, but the magnitude of the premium
+  has largely disappeared per the Dew-Becker & Giglio finding below.
+- Dew-Becker & Giglio, ["The Disappearing Index Option Premium"](https://www.chicagofed.org/publications/working-papers/2025/2025-17)
+  (Chicago Fed Working Paper 2025-17, 2025) — shows index option alphas have
+  converged to zero since ~2010, attributing the change to reduced intermediary
+  frictions. This directly motivated our reduction of VRP penalty weights.
 - The GEX-implied realized vol adjustment (dealers long gamma dampen realized vol by
   ~15–25%, short gamma amplifies by ~8–15%) is a practitioner heuristic derived from
   the Barbon & Buraschi "Gamma Fragility" finding that dealer gamma positioning
@@ -390,10 +404,30 @@ strength, VWAP position, and charm/vanna flow direction into a single BULLISH/
 BEARISH/NEUTRAL output with strength (STRONG/MODERATE/WEAK).
 
 **Position sizing:** Uses a modified half-Kelly criterion capped at 0.25–5% of
-portfolio, further scaled by IV/HV ratio and VRP context to avoid over-allocating
-when options are expensive.
+portfolio, further scaled by IV/HV ratio and VRP context. Per Dew-Becker &
+Giglio (2025), the VRP scaling has been softened — IV/HV ratio is now the
+primary sizing signal, with VRP providing a secondary adjustment.
 
 **Wall-break probability:** Starts at a 15% base and is adjusted by beta-adjusted
 Reynolds, gamma asymmetry (positive gamma dampens ~2.5× more effectively than
-negative gamma amplifies, per Bakshi), ACF trend, phase proximity, self-excitation,
+negative gamma amplifies, per Barbon & Buraschi), ACF trend, phase proximity, self-excitation,
 GEX entropy, and Ducournau collision probability.
+
+---
+
+## Modern Validation & Caveats
+
+Markets evolve. Several of our foundational references are 10–20+ years old.
+Here is how we've validated (or revised) each against modern research:
+
+| Concept | Original Source | Status | Modern Evidence |
+|---|---|---|---|
+| **Dealer gamma effects** | Barbon & Buraschi (2021) | **Confirmed** | Recent empirical work (Li & Todorov 2023, Healy 2024) continues to find that GEX predicts intraday vol dynamics. The mechanism (forced hedging) is structural and persists. |
+| **Return autocorrelation** | Cont (2001) | **Confirmed** | "Stylized fact" — replicated across decades and asset classes. Autocorrelation structure is a statistical property of returns, not a regime that can arbitrage away. |
+| **Hawkes self-excitation** | Hawkes (1971), Bacry et al. (2015) | **Confirmed** | Widely used in modern high-frequency trading, order-flow analysis, and risk management. Refinements exist but the core model is standard. |
+| **Phase transitions / entropy** | Sornette (2003), Scheffer et al. (2009) | **Conceptually valid** | Our Shannon entropy approach is inspired by, not derived from, these works. The concept that concentrated positioning precedes regime shifts is well-supported by practitioner experience and recent event studies. |
+| **Variance Risk Premium** | Bakshi & Kapadia (2003) | **Revised** | Dew-Becker & Giglio (Chicago Fed WP 2025-17) show index option alphas have converged to zero since ~2010. We've halved our VRP penalty weights and treat VRP as a relative richness signal, not a structural headwind. |
+| **First-passage time** | Redner (2001), Kanazawa et al. (2018) | **Valid** | The Brownian motion first-passage formula is a mathematical identity. Kanazawa's dealer-interaction refinement is a theoretical extension; we use it conservatively. |
+| **Kelly criterion** | Kelly (1956) | **Timeless** | Mathematical optimality result. We use half-Kelly with regime-based scaling — standard risk management practice. |
+| **Avellaneda & Stoikov** | Avellaneda & Stoikov (2008) | **Confirmed** | Remains the foundational market-making model. Actively used and extended in academic and industry research (Guéant et al. 2013, Cartea et al. 2015). |
+| **Market microstructure** | Bouchaud et al. (2018) | **Current** | Published 2018; Bouchaud's group at CFM continues active research. The book is a standard reference for quantitative trading programs. |

@@ -392,11 +392,15 @@ def _kelly_size(edge_pct, win_prob, iv_hv_ratio, vrp_context="FAIR"):
     kelly_full = (b * p - q) / b if b > 0 else 0
     kelly_half = max(0, kelly_full * 0.5)
 
-    # VIX-regime scaling (from Wysocki hybrid)
-    if iv_hv_ratio > 1.5 or vrp_context in ("HIGH_PREMIUM", "MODERATE_PREMIUM"):
-        regime_scale = 0.6  # reduce in expensive vol
+    # Vol-regime scaling: IV/HV ratio is the primary signal for sizing.
+    # VRP context provides a secondary nudge but with reduced weight per
+    # Dew-Becker & Giglio (2025) showing structural VRP has largely vanished.
+    if iv_hv_ratio > 1.5 or vrp_context == "HIGH_PREMIUM":
+        regime_scale = 0.7
+    elif iv_hv_ratio > 1.3 and vrp_context == "MODERATE_PREMIUM":
+        regime_scale = 0.8
     elif iv_hv_ratio < 0.9 or vrp_context == "DISCOUNT":
-        regime_scale = 1.2  # allow more in cheap vol
+        regime_scale = 1.2
     else:
         regime_scale = 1.0
 
