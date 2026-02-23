@@ -120,8 +120,6 @@ Put GEX  = −γ · OI · 100 · S      (dealers short puts → forced to sell o
 **References:**
 - Barbon & Buraschi, ["Gamma Fragility"](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3725454) (2021) — formalizes how dealer hedging
   creates mechanical supply/demand at gamma-heavy strikes.
-- Hedged.io, ["Gamma Exposure and Its Impact on Market Direction"](https://perfiliev.co.uk/market-commentary/how-to-calculate-gamma-exposure-and-delta-adjusted-gamma/) — practical GEX
-  computation methodology.
 
 ---
 
@@ -156,8 +154,8 @@ triggering more aggressive rebalancing. The Reynolds number is adjusted:
 **References:**
 - Analogy drawn from Navier-Stokes turbulence theory. The critical Reynolds number
   concept (laminar→turbulent transition) maps directly to the dealer capacity question.
-- Avellaneda & Stoikov, ["High-frequency trading in a limit order book"](https://math.nyu.edu/~avellane/HighFrequencyTrading.pdf) (2008) —
-  market-maker inventory dynamics under flow pressure.
+- Avellaneda & Stoikov, ["High-frequency trading in a limit order book"](https://www.tandfonline.com/doi/abs/10.1080/14697680701381228)
+  (Quantitative Finance 8(3), 2008) — market-maker inventory dynamics under flow pressure.
 
 ---
 
@@ -192,8 +190,10 @@ threshold (~12.9% amplified days historically marks the boundary).
 **References:**
 - Cont, ["Empirical properties of asset returns: stylized facts and statistical
   issues"](https://doi.org/10.1080/713665670) (2001) — foundational work on return autocorrelation structure.
-- Bouchaud et al., ["Trades, Quotes and Prices"](https://www.cambridge.org/core/books/trades-quotes-and-prices/029A71078A5B210E129FC4B1B6E3A7F1) (Cambridge, 2018) — connects
-  negative lag-1 autocorrelation to market-maker mean-reversion activity.
+- Bouchaud, Bonart, Donier & Gould, [*Trades, Quotes and Prices: Financial Markets
+  Under the Microscope*](https://www.cambridge.org/us/universitypress/subjects/physics/econophysics-and-financial-physics/trades-quotes-and-prices-financial-markets-under-microscope)
+  (Cambridge University Press, 2018, ISBN 9781107156050) — connects negative lag-1
+  autocorrelation to market-maker mean-reversion activity.
 
 ---
 
