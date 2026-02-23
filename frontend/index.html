@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dealer's Edge — Options Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <div class="header__brand">
+        <div class="header__logo">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <rect width="28" height="28" rx="6" fill="url(#logo-grad)"/>
+            <path d="M7 14h4l3-7 4 14 3-7h4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs><linearGradient id="logo-grad" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#6366f1"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs>
+          </svg>
+        </div>
+        <div>
+          <h1 class="header__title">Dealer's Edge</h1>
+          <p class="header__subtitle">Live in the dealer's head. Feed off their hedging.</p>
+        </div>
+      </div>
+      <div class="header__controls">
+        <div class="ticker-input">
+          <label class="ticker-input__label" for="ticker">Ticker</label>
+          <div class="ticker-input__wrapper">
+            <input type="text" id="ticker" class="ticker-input__field" placeholder="SPY" maxlength="5" autocomplete="off" spellcheck="false" />
+            <button id="analyze-btn" class="ticker-input__btn">Analyze</button>
+          </div>
+        </div>
+        <div class="expiry-select" id="expiry-select-wrapper" style="display:none">
+          <label class="ticker-input__label" for="expiry-select">Expiration</label>
+          <select id="expiry-select" class="ticker-input__field ticker-input__field--select"></select>
+        </div>
+        <div class="refresh-controls">
+          <label class="ticker-input__label" for="refresh-interval">Auto-Refresh</label>
+          <select id="refresh-interval" class="ticker-input__field ticker-input__field--select ticker-input__field--narrow">
+            <option value="0" selected>Off</option>
+            <option value="60">1 min</option>
+            <option value="300">5 min</option>
+            <option value="900">15 min</option>
+          </select>
+        </div>
+        <div class="last-updated" id="last-updated" style="display:none">
+          <span class="last-updated__label">Updated</span>
+          <span class="last-updated__time" id="last-updated-time"></span>
+        </div>
+      </div>
+    </header>
+
+    <div id="loading" class="loading" style="display:none">
+      <div class="loading__spinner"></div>
+      <p class="loading__text">Scanning dealer positions + ACF regime + Reynolds...</p>
+    </div>
+
+    <div id="error" class="error-banner" style="display:none">
+      <span id="error-text"></span>
+      <button id="error-close" class="error-banner__close">&times;</button>
+    </div>
+
+    <div id="empty-state" class="empty-state">
+      <div class="empty-state__icon">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+          <circle cx="32" cy="32" r="30" stroke="#4f46e5" stroke-width="2" stroke-dasharray="6 4" opacity="0.3"/>
+          <path d="M20 32h6l4-10 6 20 4-10h6" stroke="#6366f1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h2 class="empty-state__title">Enter a ticker to begin</h2>
+      <p class="empty-state__text">Maps the dealer's mechanical hedging obligations, detects the ACF regime, computes the Gamma Reynolds Number, and generates buy-only directional guidance.</p>
+      <div class="empty-state__examples">
+        <button class="empty-state__chip" data-ticker="SPY">SPY</button>
+        <button class="empty-state__chip" data-ticker="QQQ">QQQ</button>
+        <button class="empty-state__chip" data-ticker="AAPL">AAPL</button>
+        <button class="empty-state__chip" data-ticker="TSLA">TSLA</button>
+        <button class="empty-state__chip" data-ticker="NVDA">NVDA</button>
+        <button class="empty-state__chip" data-ticker="META">META</button>
+        <button class="empty-state__chip" data-ticker="GME">GME</button>
+        <button class="empty-state__chip" data-ticker="AMC">AMC</button>
+      </div>
+    </div>
+
+    <main id="dashboard" class="dashboard" style="display:none">
+
+      <!-- SECTION 1: THE PLAY — what to do right now -->
+      <section id="hero"></section>
+
+      <section class="card">
+        <h3 class="card__title">Positions</h3>
+        <p class="card__subtitle">Ranked by edge quality. Each position tells you exactly what to buy, where to exit, and why.</p>
+        <div id="positions-container" class="positions-container"></div>
+      </section>
+
+      <!-- Vol Edge -->
+      <section class="card" id="vol-analysis-card">
+        <h3 class="card__title">Volatility Edge</h3>
+        <p class="card__subtitle">Are options cheap or expensive? Should you buy naked or use spreads?</p>
+        <div id="vol-analysis-container"></div>
+      </section>
+
+      <!-- SECTION 2: THE MAP — what to watch during the trade -->
+      <div class="section-divider"><span>Levels &amp; Execution</span></div>
+
+      <div id="collision-timeline" class="collision-timeline"></div>
+
+      <section class="card">
+        <h3 class="card__title">Level-by-Level Action Guide</h3>
+        <p class="card__subtitle">What to EXPECT and what to DO when price reaches each level.</p>
+        <div id="level-actions" class="level-actions"></div>
+      </section>
+
+      <section class="card">
+        <h3 class="card__title">Key Dealer Levels</h3>
+        <div class="levels-grid" id="levels-grid"></div>
+      </section>
+
+      <section class="card" id="avoid-card">
+        <h3 class="card__title">What to Avoid</h3>
+        <div id="avoid-section"></div>
+      </section>
+
+      <!-- SECTION 3: VOL PLAYS -->
+      <div class="section-divider"><span>Straddle / Strangle</span></div>
+
+      <section class="card" id="straddle-card">
+        <h3 class="card__title">Straddle / Strangle Analysis</h3>
+        <p class="card__subtitle">Non-directional vol-buying setups scored by regime, IV, catalysts, and structure.</p>
+        <div id="straddle-container"></div>
+      </section>
+
+      <!-- SECTION 4: CHARTS -->
+      <div class="section-divider"><span>Charts</span></div>
+
+      <section class="card card--chart">
+        <h3 class="card__title">Price Chart with Dealer Levels</h3>
+        <div id="price-chart" class="chart-container"></div>
+      </section>
+
+      <section class="dashboard__row dashboard__row--charts">
+        <div class="card card--chart">
+          <div class="card__header-row">
+            <div>
+              <h3 class="card__title">Gamma Exposure by Strike</h3>
+            </div>
+            <div class="gex-toggle">
+              <button class="gex-toggle__btn gex-toggle__btn--active" id="gex-single-btn" data-mode="single">Single Expiry</button>
+              <button class="gex-toggle__btn" id="gex-agg-btn" data-mode="aggregate">All Expirations</button>
+            </div>
+          </div>
+          <div id="gex-chart" class="chart-container"></div>
+          <div id="gex-agg-info" class="gex-agg-info" style="display:none"></div>
+        </div>
+        <div class="card card--chart">
+          <h3 class="card__title">Open Interest Distribution</h3>
+          <div id="oi-chart" class="chart-container"></div>
+        </div>
+      </section>
+
+      <!-- SECTION 5: REGIME & TECHNICALS — supporting evidence -->
+      <div class="section-divider"><span>Regime &amp; Technicals</span></div>
+
+      <section id="regime-strip" class="regime-strip"></section>
+      <section id="technicals-strip" class="technicals-strip"></section>
+
+    </main>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
