@@ -152,10 +152,13 @@ triggering more aggressive rebalancing. The Reynolds number is adjusted:
 `Re_adj = Re_raw × (1 / max(β, 0.3))`.
 
 **References:**
-- Analogy drawn from Navier-Stokes turbulence theory. The critical Reynolds number
-  concept (laminar→turbulent transition) maps directly to the dealer capacity question.
-- Avellaneda & Stoikov, ["High-frequency trading in a limit order book"](https://www.tandfonline.com/doi/abs/10.1080/14697680701381228)
-  (Quantitative Finance 8(3), 2008) — market-maker inventory dynamics under flow pressure.
+- Ducournau, ["Stock Market Physical Properties via Stokes' Law"](https://arxiv.org/abs/2103.00721)
+  (arXiv:2103.00721, 2021) — proposes an econophysics Reynolds number for stock markets,
+  classifying market dynamics as laminar, transitory, or turbulent based on supply/demand
+  collision mechanics. Directly foundational to our Gamma Reynolds concept.
+- The laminar→turbulent transition analogy is drawn from Navier-Stokes fluid dynamics.
+  Our adaptation replaces Ducournau's volume-based inputs with gamma-weighted speculative
+  flow vs. dealer inventory capacity.
 
 ---
 
@@ -258,10 +261,17 @@ engine overrides to treat the regime as TURBULENT — the system is primed for a
 violent move but hasn't triggered yet.
 
 **References:**
-- Sornette, ["Why Stock Markets Crash"](https://press.princeton.edu/books/paperback/9780691175959/why-stock-markets-crash) (Princeton, 2003) — critical phenomena and
-  log-periodic oscillations as precursors to phase transitions in markets.
 - Scheffer et al., ["Early-warning signals for critical transitions"](https://doi.org/10.1038/nature08227)
-  (Nature, 2009) — entropy-based early warning signals for regime shifts in complex systems.
+  (Nature, 2009) — establishes that complex systems exhibit generic statistical warning
+  signals (rising variance, critical slowing down) before abrupt regime shifts. Our entropy
+  metric is a conceptual adaptation: where Scheffer measures variance amplification near
+  tipping points, we measure gamma *concentration* as a proxy for system fragility.
+- Sornette, ["Why Stock Markets Crash"](https://press.princeton.edu/books/paperback/9780691175959/why-stock-markets-crash)
+  (Princeton, 2003) — broader framework for viewing market crashes as critical phase
+  transitions with endogenous origins. Sornette's methodology (log-periodic power laws)
+  differs from ours (Shannon entropy), but the shared insight is that proximity to a phase
+  transition is detectable from the statistical structure of the system before the
+  transition occurs.
 
 ---
 
@@ -294,12 +304,17 @@ P(T ≤ DTE) = erfc(L / (σ · √(2·DTE)))
 ```
 
 **References:**
-- Kanazawa, Kim & Kanazawa, ["Exact solution of the two-body financial dealer
-  model"](https://arxiv.org/abs/2205.15558) (arXiv:2205.15558, 2022) — derives mean collision
-  time between interacting financial agents using kinetic theory.
+- The formula T = L²/(2σ²) is the classical mean first-passage time for one-dimensional
+  Brownian motion reaching an absorbing barrier — a standard result in stochastic
+  processes (see e.g. Redner, [*A Guide to First-Passage Processes*](https://doi.org/10.1017/CBO9780511606014),
+  Cambridge, 2001).
+- Kanazawa, Takayasu & Takayasu, ["Exact solution to two-body financial dealer
+  model"](https://arxiv.org/abs/2205.15558) (J. Stat. Phys. 190, 2023) — extends first-passage
+  analysis to interacting dealer agents using kinetic theory. Our regime-adjustment
+  multipliers (turbulent=0.6×, dampened=1.4×) are an empirical adaptation of their
+  insight that dealer interaction alters collision timescales.
 - Ducournau, ["Stock Market Physical Properties via Stokes' Law"](https://arxiv.org/abs/2103.00721)
-  (arXiv:2103.00721, 2021) — odds-ratio refinement of collision probability
-  for price reaching key levels.
+  (arXiv:2103.00721, 2021) — odds-ratio refinement of collision probability.
 
 ---
 
@@ -335,11 +350,14 @@ the *true* VRP after accounting for the dealer's stabilizing/destabilizing effec
 
 **References:**
 - Bakshi & Kapadia, ["Delta-Hedged Gains and the Negative Market Volatility Risk
-  Premium"](https://doi.org/10.1093/rfs/hhg002) (Review of Financial Studies, 2003) — establishes
-  that straddles have a structurally negative risk premium (~−10% weeklies, ~−19%
-  monthlies). The "Dark Matter" of options.
-- Bühler, Gonon, Teichmann & Wood, ["Deep hedging"](https://doi.org/10.1080/14697688.2019.1571683)
-  (Quantitative Finance, 2019) — framework for GEX-implied volatility adjustment.
+  Premium"](https://doi.org/10.1093/rfs/hhg002) (Review of Financial Studies 16(2), 2003) —
+  establishes that delta-hedged option portfolios systematically lose money, proving a
+  negative market volatility risk premium. Directly informs our VRP calculation and the
+  straddle analyzer's structural headwind scoring.
+- The GEX-implied realized vol adjustment (dealers long gamma dampen realized vol by
+  ~15–25%, short gamma amplifies by ~8–15%) is a practitioner heuristic derived from
+  the Barbon & Buraschi "Gamma Fragility" finding that dealer gamma positioning
+  mechanically alters realized volatility via forced hedging flows.
 
 ---
 
