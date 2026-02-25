@@ -31,6 +31,7 @@ def analyze_straddles(
     technicals: Optional[dict] = None,
     key_levels: Optional[dict] = None,
     vrp_data: Optional[dict] = None,
+    account_size: Optional[float] = None,
 ) -> dict:
     re_gamma = reynolds.get("reynolds_number", 0)
     re_regime = reynolds.get("regime", "LAMINAR")
@@ -141,6 +142,33 @@ def analyze_straddles(
         straddle, strangle, spot, channel, key_levels, vwap_data,
     )
 
+    risk_dollars = None
+    max_contracts = None
+    risk_pct = None
+    contract_cost = None
+    size_warning = None
+
+    if account_size and account_size > 0:
+        straddle_cost = straddle.get("total_cost", 0)
+        if verdict in ("BUY_STRADDLE", "BUY_STRANGLE"):
+            risk_pct = 1.5
+        elif verdict == "CONSIDER":
+            risk_pct = 0.75
+        if risk_pct and risk_pct > 0:
+            risk_dollars = round(account_size * risk_pct / 100, 2)
+            if straddle_cost > 0:
+                contract_cost = round(straddle_cost * 100, 2)
+                honest_count = int(risk_dollars / contract_cost)
+                max_contracts = honest_count
+                if honest_count == 0:
+                    pct_of_account = round(contract_cost / account_size * 100, 1)
+                    size_warning = (
+                        f"1 straddle ≈ ${contract_cost:,.0f} "
+                        f"({pct_of_account}% of portfolio) — "
+                        f"exceeds Kelly allocation of ${risk_dollars:,.0f}. "
+                        f"Consider a cheaper underlying or a strangle to reduce cost."
+                    )
+
     return {
         "straddle": straddle,
         "strangle": strangle,
@@ -174,6 +202,11 @@ def analyze_straddles(
         "warnings": warnings,
         "suggested_dte": suggested_dte,
         "suggested_sizing": suggested_sizing,
+        "risk_dollars": risk_dollars,
+        "max_contracts": max_contracts,
+        "risk_pct": risk_pct,
+        "contract_cost": contract_cost,
+        "size_warning": size_warning,
     }
 
 

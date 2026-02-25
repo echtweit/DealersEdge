@@ -75,6 +75,7 @@ def dealer_map(
     expiration: str = None,
     min_dte: int = 0,
     max_dte: int = 60,
+    account_size: float = None,
 ):
     """
     Full dealer positioning map + directional thesis.
@@ -179,6 +180,7 @@ def dealer_map(
             dte=dte,
             technicals=technicals,
             total_gex=gex["total_gex"],
+            account_size=account_size,
         )
 
         # 10. Key levels (needed for straddle P/L scenarios)
@@ -246,6 +248,7 @@ def dealer_map(
             technicals=technicals,
             key_levels=key_levels,
             vrp_data=vol_analysis.get("vrp"),
+            account_size=account_size,
         )
 
         atr_dollar = technicals.get("atr", {}).get("atr", 0)

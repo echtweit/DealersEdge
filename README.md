@@ -2,6 +2,9 @@
 
 A dealer-aware options trading tool for 5–20 DTE plays. Maps the dealer's mechanical hedging obligations and identifies exploitable trade setups.
 
+> Educational side project only — this is not a professional trading system and is not intended for live trading or investment advice.  
+> The models and signals are currently being validated through forward testing.
+
 ## What It Does
 
 - **Dealer Positioning Map**: Calculates GEX (Gamma Exposure) profile, flip point, max pain, call/put walls for any ticker
@@ -42,6 +45,53 @@ Frontend runs on http://localhost:3000 (proxies API calls to backend)
 
 Open http://localhost:3000, type a ticker (SPY, QQQ, AAPL, etc.), and hit Analyze.
 
+## Paper Trader (Forward Testing)
+
+A cron-driven forward-testing framework that auto-enters all DealersEdge signals, tracks actual option P&L via yfinance, and stores full signal snapshots for attribution analysis.
+
+```bash
+# Ensure the backend is running first, then:
+
+# Scan default watchlist for new signals
+python -m papertrader scan
+
+# Scan specific tickers with account size
+python -m papertrader --account-size 10000 scan SPY QQQ TSLA
+
+# Check open positions for exit conditions (target/stop/expiry)
+python -m papertrader check
+
+# View open positions
+python -m papertrader status
+
+# Performance report
+python -m papertrader report
+
+# Signal attribution — which signals actually predict well?
+python -m papertrader analyze
+
+# Closed trade log
+python -m papertrader history --limit 100
+
+# Print crontab snippet for automated scheduling
+python -m papertrader cron
+```
+
+### How It Works
+
+1. **Scan** calls `/api/dealer-map/{ticker}` for each ticker, stores the full response, and opens paper trades for every actionable signal (directional positions + straddles/strangles).
+2. **Monitor** periodically fetches live option prices and checks exit conditions: underlying hits target, option premium drops past stop-loss %, DTE reaches 0, or max hold time exceeded.
+3. **Reporter** queries the SQLite trade journal to compute win rates, P&L, Sharpe ratio, and breaks down performance by regime (GEX, Reynolds, ACF), thesis type, confidence level, and VRP — so you can see exactly which signals hold up in practice.
+
+Every trade stores the complete signal snapshot at entry time (regime labels, Kelly sizing, wall-break probability, entropy, etc.) enabling rigorous attribution analysis.
+
+### Cron Schedule
+
+```
+0 15 * * 1-5        Scan at 10:00 AM ET (Mon-Fri)
+*/30 14-21 * * 1-5   Check exits every 30 min during market hours
+```
+
 ## Data Sources
 
 All data is free — no API keys required:
@@ -71,6 +121,15 @@ frontend/
   src/main.js            Rendering logic + charts
   src/style.css          Dark trading dashboard theme
   src/utils/             API client + formatters
+
+papertrader/
+  __main__.py            CLI entry point (scan / check / status / report / analyze / history)
+  config.py              API URL, default watchlist, cron templates
+  db.py                  SQLite schema + CRUD (scans, trades, price_checks)
+  scanner.py             Calls DealersEdge API, parses exit rules, opens paper trades
+  monitor.py             Checks open trades for target/stop/expiry/time exits
+  pricing.py             Live option mid-prices via yfinance
+  reporter.py            Performance analytics + signal attribution
 ```
 
 ---

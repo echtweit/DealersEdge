@@ -27,6 +27,7 @@ def classify_thesis(
     dte: int,
     technicals: dict = None,
     total_gex: float = 0,
+    account_size: float = None,
 ) -> dict:
     """
     The core directional classification.
@@ -164,7 +165,7 @@ def classify_thesis(
         call_wall, put_wall, ch_floor, ch_ceiling, ch_pos,
         ch_strategy, ch_edge, wall_break, atm_iv, dte,
         max_pain, abs_gamma_strike, cp_ratio, total_charm, total_vanna,
-        atr_dollar, atr_pct, vol_context,
+        atr_dollar, atr_pct, vol_context, account_size,
     )
 
     # ---- Level actions ----
@@ -424,7 +425,7 @@ def _build_positions(
     call_wall, put_wall, ch_floor, ch_ceiling, ch_pos,
     ch_strategy, ch_edge, wall_break, atm_iv, dte,
     max_pain, ags, cp_ratio, charm, vanna,
-    atr_dollar=0, atr_pct=0, vol_context=None,
+    atr_dollar=0, atr_pct=0, vol_context=None, account_size=None,
 ):
     positions = []
     vc = vol_context or {}
@@ -512,6 +513,7 @@ def _build_positions(
             "dte_guidance": "5-10 DTE" if dte <= 5 else f"{dte}-{dte+5} DTE",
             "sizing": default_sizing,
             "kelly_size": kelly_label,
+            "kelly_pct": kelly_pct,
             "target": f"${wall_str:.0f} {'call' if is_bullish else 'put'} wall → acceleration through"
                       + ("" if wall_reachable else f" (NOTE: wall is {abs(wall_str-spot)/atr_dollar:.1f}x ATR away — may need multi-day trend)"),
             "stop": "Trail at 50% of max gain. Cut at -50% of premium.",
@@ -552,6 +554,7 @@ def _build_positions(
             "dte_guidance": "7-14 DTE",
             "sizing": size_adj or "Moderate — not fully confirmed yet",
             "kelly_size": kelly_label,
+            "kelly_pct": kelly_pct,
             "target": f"${clamped_target:.0f} {'call' if is_bullish else 'put'} wall",
             "stop": "Cut at -50% if no breakout in 5 days.",
             "edge": f"Re={re_gamma:.1f} says dealers are overwhelmed — ACF should follow.{atr_note}",
@@ -572,6 +575,7 @@ def _build_positions(
             "dte_guidance": "5-10 DTE",
             "sizing": size_adj or "Standard — ACF confirms trend",
             "kelly_size": kelly_label,
+            "kelly_pct": kelly_pct,
             "target": "Ride until ACF flips or move stalls",
             "stop": "Trail at 40% of max gain. Cut if trend reverses intraday.",
             "edge": f"ACF={acf1:+.3f} → moves follow through. Don't fade.{atr_note}",
@@ -643,6 +647,7 @@ def _build_positions(
             "dte_guidance": "3-7 DTE",
             "sizing": fade_call_sizing,
             "kelly_size": kelly_label,
+            "kelly_pct": kelly_pct,
             "target": f"Snap-back to prior close / ${ags:.0f} gamma strike",
             "stop": "Take profit at 30-50% gain. Cut at -40%. 1-2 day hold.",
             "edge": fade_call_edge,
@@ -658,6 +663,7 @@ def _build_positions(
             "dte_guidance": "3-7 DTE",
             "sizing": fade_put_sizing,
             "kelly_size": kelly_label,
+            "kelly_pct": kelly_pct,
             "target": f"Pullback to prior close / ${ags:.0f} gamma strike",
             "stop": "Take profit at 30-50% gain. Cut at -40%. 1-2 day hold.",
             "edge": fade_put_edge,
@@ -680,6 +686,7 @@ def _build_positions(
             "dte_guidance": "1-5 DTE",
             "sizing": size_adj_channel or "Full size — WITH dealer, high-probability",
             "kelly_size": kelly_label,
+            "kelly_pct": kelly_pct,
             "target": f"Mid-channel: ${mid_ch_clamped:.0f}",
             "stop": "Stop if floor breaks by >1%. Take profit at mid-channel.",
             "edge": f"Dealers LONG gamma = they BUY dips at ${ch_floor:.0f}. You're alongside them.{atr_note}",
@@ -701,6 +708,7 @@ def _build_positions(
             "dte_guidance": "1-5 DTE",
             "sizing": size_adj_channel or "Full size — WITH dealer, high-probability",
             "kelly_size": kelly_label,
+            "kelly_pct": kelly_pct,
             "target": f"Mid-channel: ${mid_ch_clamped:.0f}",
             "stop": "Stop if ceiling breaks by >1%. Take profit at mid-channel.",
             "edge": f"Dealers LONG gamma = they SELL rips at ${ch_ceiling:.0f}. You're alongside them.{atr_note}",
@@ -742,6 +750,30 @@ def _build_positions(
             "edge": "Staying flat when there's no edge IS the edge.",
             "confidence": "N/A",
         })
+
+    if account_size and account_size > 0:
+        dte_est = max(dte, 1)
+        for pos in positions:
+            kp = pos.get("kelly_pct", 0)
+            if kp > 0:
+                risk = round(account_size * kp / 100, 2)
+                pos["risk_dollars"] = risk
+                strike = pos.get("strike", 0)
+                if strike > 0 and atm_iv > 0:
+                    est_premium = spot * atm_iv * (dte_est / 365) ** 0.5 * 0.4
+                    cost_per = round(est_premium * 100, 2)
+                    pos["contract_cost"] = cost_per
+                    if cost_per > 0:
+                        honest_count = int(risk / cost_per)
+                        pos["max_contracts"] = honest_count
+                        if honest_count == 0:
+                            pct_of_account = round(cost_per / account_size * 100, 1)
+                            pos["size_warning"] = (
+                                f"1 contract ≈ ${cost_per:,.0f} "
+                                f"({pct_of_account}% of portfolio) — "
+                                f"exceeds Kelly allocation of ${risk:,.0f}. "
+                                f"Consider cheaper underlyings or debit spreads."
+                            )
 
     return positions
 

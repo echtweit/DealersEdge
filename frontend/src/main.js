@@ -14,6 +14,16 @@ function init() {
   const analyzeBtn = $("#analyze-btn");
   const expirySelect = $("#expiry-select");
   const refreshSelect = $("#refresh-interval");
+  const portfolioInput = $("#portfolio");
+
+  const savedBalance = localStorage.getItem("portfolio_balance");
+  if (savedBalance) portfolioInput.value = savedBalance;
+
+  portfolioInput.addEventListener("input", () => {
+    const val = portfolioInput.value;
+    if (val) localStorage.setItem("portfolio_balance", val);
+    else localStorage.removeItem("portfolio_balance");
+  });
 
   analyzeBtn.addEventListener("click", () => runAnalysis());
   tickerInput.addEventListener("keydown", (e) => {
@@ -79,8 +89,11 @@ async function runAnalysis(expiration = null, isAutoRefresh = false) {
   hideError();
 
   try {
+    const portfolioVal = $("#portfolio").value;
+    const accountSize = portfolioVal ? parseFloat(portfolioVal) : null;
+
     const [data, priceHistory] = await Promise.all([
-      getDealerMap(ticker, expiration),
+      getDealerMap(ticker, expiration, accountSize),
       getPriceHistory(ticker),
     ]);
     currentData = data;
@@ -782,6 +795,11 @@ function renderPositions(data) {
               <span class="pos-card__detail-label">Kelly Size</span>
               <span class="pos-card__detail-value pos-card__detail-value--kelly">${p.kelly_size}</span>
             </div>` : ""}
+            ${p.risk_dollars != null ? `<div class="pos-card__detail">
+              <span class="pos-card__detail-label">Risk Budget</span>
+              <span class="pos-card__detail-value pos-card__detail-value--kelly">$${formatLargeNumber(p.risk_dollars)}${p.max_contracts ? ` → ${p.max_contracts} contract${p.max_contracts > 1 ? "s" : ""}` : ""}${p.contract_cost ? ` ($${formatLargeNumber(p.contract_cost)}/ct)` : ""}</span>
+            </div>` : ""}
+            ${p.size_warning ? `<div class="pos-card__vol-warn">${p.size_warning}</div>` : ""}
           </div>
           <div class="pos-card__row">
             <span class="pos-card__row-label">Target</span>
@@ -958,6 +976,8 @@ function renderStraddles(data) {
           <div class="ss-iv-box__guidance">
             <div><strong>DTE:</strong> ${suggested_dte}</div>
             <div><strong>Size:</strong> ${suggested_sizing}</div>
+            ${sa.risk_dollars != null ? `<div><strong>Risk:</strong> $${formatLargeNumber(sa.risk_dollars)}${sa.max_contracts ? ` → ${sa.max_contracts} contract${sa.max_contracts > 1 ? "s" : ""}` : ""}${sa.contract_cost ? ` ($${formatLargeNumber(sa.contract_cost)}/ct)` : ""}</div>` : ""}
+            ${sa.size_warning ? `<div style="color: var(--amber); font-size: 0.68rem; margin-top: 4px;">${sa.size_warning}</div>` : ""}
           </div>
         </div>
       </div>

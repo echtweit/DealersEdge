@@ -112,6 +112,33 @@ input, select { font-family: inherit; }
 .ticker-input__btn:hover { background: var(--accent-hover); }
 .ticker-input__btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* Portfolio balance input */
+.portfolio-input__label {
+  display: block; font-size: 0.65rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-muted); margin-bottom: var(--gap-xs);
+}
+.portfolio-input__field {
+  background: var(--bg-primary); border: 1px solid var(--border-default);
+  color: var(--text-primary); font-size: 0.85rem; font-weight: 600;
+  font-family: var(--font-mono); padding: 8px 12px;
+  border-radius: var(--radius-sm); outline: none; width: 120px;
+  transition: border-color 0.15s;
+  -moz-appearance: textfield;
+}
+.portfolio-input__field::-webkit-inner-spin-button,
+.portfolio-input__field::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.portfolio-input__field:focus { border-color: var(--accent); }
+.portfolio-input__field::placeholder { color: var(--text-muted); font-weight: 400; }
+
+/* Risk sizing on position cards */
+.pos-card__risk {
+  font-size: 0.78rem; color: var(--accent); padding: 6px 10px;
+  margin-top: 8px; background: var(--accent-muted);
+  border-left: 3px solid var(--accent); border-radius: 0 4px 4px 0;
+  font-family: var(--font-mono); font-weight: 600;
+}
+
 /* ---- States ---- */
 .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 120px var(--gap-xl); gap: var(--gap-md); }
 .loading__spinner { width: 36px; height: 36px; border: 3px solid var(--border-default); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }

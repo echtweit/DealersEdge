@@ -115,6 +115,11 @@ class PositionData(BaseModel):
     dte_guidance: str = ""
     sizing: str = ""
     kelly_size: str = ""
+    kelly_pct: Optional[float] = None
+    risk_dollars: Optional[float] = None
+    max_contracts: Optional[int] = None
+    contract_cost: Optional[float] = None
+    size_warning: Optional[str] = None
     target: str = ""
     stop: str = ""
     edge: str = ""
@@ -245,6 +250,11 @@ class StraddleAnalysisData(BaseModel):
     warnings: list[str] = []
     suggested_dte: str = ""
     suggested_sizing: str = ""
+    risk_dollars: Optional[float] = None
+    max_contracts: Optional[int] = None
+    risk_pct: Optional[float] = None
+    contract_cost: Optional[float] = None
+    size_warning: Optional[str] = None
 
 
 class CollisionTime(BaseModel):

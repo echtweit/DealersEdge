@@ -24,3 +24,7 @@ Thumbs.db
 
 # Test snapshots (large JSON)
 backend/tests/snapshots/
+
+# PaperTrader database + logs
+papertrader/*.db
+papertrader/cron.log
