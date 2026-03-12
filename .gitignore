@@ -28,3 +28,12 @@ backend/tests/snapshots/
 # PaperTrader database + logs
 papertrader/*.db
 papertrader/cron.log
+papertrader/backend_guard.log
+papertrader/cron_baseline.log
+papertrader/cron_challenger.log
+papertrader/cron_challenger_v1.log
+papertrader/cron_challenger_v2.log
+papertrader/cron_challenger_v3.log
+
+# Analysis artifacts
+analysis/output/

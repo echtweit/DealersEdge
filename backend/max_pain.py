@@ -62,21 +62,40 @@ def find_oi_walls(calls: list[dict], puts: list[dict], spot: float) -> dict:
     Find the Call Wall (highest call OI above spot) and
     Put Wall (highest put OI below spot).
     Also returns top 3 walls on each side for nuance.
+
+    To avoid deep-OTM "lottery strike" distortion, prefer walls within a
+    proximity band around spot. Fall back to full-chain walls if no strikes
+    exist inside the band.
     """
+    band_pct = 0.20  # 20% around spot captures relevant dealer hedging zone
+    upper = spot * (1 + band_pct)
+    lower = spot * (1 - band_pct)
+
     calls_above = [(float(c["strike"]), int(c.get("openInterest", 0)))
                    for c in calls if float(c["strike"]) > spot]
     puts_below = [(float(p["strike"]), int(p.get("openInterest", 0)))
                   for p in puts if float(p["strike"]) < spot]
 
+    calls_above_near = [(s, oi) for s, oi in calls_above if s <= upper]
+    puts_below_near = [(s, oi) for s, oi in puts_below if s >= lower]
+
     calls_above.sort(key=lambda x: x[1], reverse=True)
     puts_below.sort(key=lambda x: x[1], reverse=True)
+    calls_above_near.sort(key=lambda x: x[1], reverse=True)
+    puts_below_near.sort(key=lambda x: x[1], reverse=True)
 
-    call_wall = calls_above[0] if calls_above else (0, 0)
-    put_wall = puts_below[0] if puts_below else (0, 0)
+    # Prefer near-spot walls; if empty, fall back to full chain.
+    call_pool = calls_above_near if calls_above_near else calls_above
+    put_pool = puts_below_near if puts_below_near else puts_below
+
+    call_wall = call_pool[0] if call_pool else (0, 0)
+    put_wall = put_pool[0] if put_pool else (0, 0)
 
     return {
         "call_wall": {"strike": call_wall[0], "oi": call_wall[1]},
         "put_wall": {"strike": put_wall[0], "oi": put_wall[1]},
-        "top_call_walls": [{"strike": s, "oi": o} for s, o in calls_above[:5]],
-        "top_put_walls": [{"strike": s, "oi": o} for s, o in puts_below[:5]],
+        "top_call_walls": [{"strike": s, "oi": o} for s, o in call_pool[:5]],
+        "top_put_walls": [{"strike": s, "oi": o} for s, o in put_pool[:5]],
+        "call_wall_scope": "near_spot" if calls_above_near else "full_chain",
+        "put_wall_scope": "near_spot" if puts_below_near else "full_chain",
     }

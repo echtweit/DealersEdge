@@ -39,18 +39,20 @@ npm install
 npm run dev
 ```
 
-Frontend runs on http://localhost:3000 (proxies API calls to backend)
+Frontend runs on http://localhost:5173 (proxies API calls to backend)
 
 ### 3. Use It
 
-Open http://localhost:3000, type a ticker (SPY, QQQ, AAPL, etc.), and hit Analyze.
+Open http://localhost:5173, type a ticker (SPY, QQQ, AAPL, etc.), and hit Analyze.
 
 ## Paper Trader (Forward Testing)
 
 A cron-driven forward-testing framework that auto-enters all DealersEdge signals, tracks actual option P&L via yfinance, and stores full signal snapshots for attribution analysis.
 
 ```bash
-# Ensure the backend is running first, then:
+# Ensure backend is running (auto-starts if down), then:
+
+python -m papertrader ensure-backend
 
 # Scan default watchlist for new signals
 python -m papertrader scan
@@ -77,6 +79,41 @@ python -m papertrader history --limit 100
 python -m papertrader cron
 ```
 
+### Statistical Analysis (Charts)
+
+Generate a separate chart pack from papertrader databases:
+
+```bash
+python analysis/stat_analysis.py
+
+# Optional: custom lookback and profile DBs
+python analysis/stat_analysis.py --days 90 \
+  --db baseline=papertrader/papertrader_baseline.db \
+  --db challenger_v1=papertrader/papertrader_challenger_v1.db
+```
+
+Outputs are written to `analysis/output/<timestamp>/` as PNG charts, CSVs, and `summary.md`.
+
+### Dealer Behavior Analysis (Raw Signals)
+
+Analyze raw scan snapshots (independent of trading execution) to infer regime behavior:
+
+```bash
+python analysis/dealer_behavior_analysis.py
+
+# Optional: custom lookback and profile DBs
+python analysis/dealer_behavior_analysis.py --days 30 \
+  --db baseline=papertrader/papertrader_baseline.db \
+  --db challenger_v1=papertrader/papertrader_challenger_v1.db
+```
+
+Outputs are written to `analysis/output/<timestamp>/dealer_behavior/` and include:
+- Regime return heatmap (`gex_regime x reynolds_regime`)
+- Regime transition matrix
+- Wall interaction bounce/break panel
+- OPEX-conditioned behavior chart
+- `summary_behavior.md`
+
 ### How It Works
 
 1. **Scan** calls `/api/dealer-map/{ticker}` for each ticker, stores the full response, and opens paper trades for every actionable signal (directional positions + straddles/strangles).
@@ -85,10 +122,13 @@ python -m papertrader cron
 
 Every trade stores the complete signal snapshot at entry time (regime labels, Kelly sizing, wall-break probability, entropy, etc.) enabling rigorous attribution analysis.
 
+For experiment governance, track all challenger-rule changes in:
+`papertrader/CHALLENGER_LOG.md`
+
 ### Cron Schedule
 
 ```
-0 15 * * 1-5        Scan at 10:00 AM ET (Mon-Fri)
+0 15 * * 1-5        ensure-backend + scan at 10:00 AM ET (Mon-Fri)
 */30 14-21 * * 1-5   Check exits every 30 min during market hours
 ```
 

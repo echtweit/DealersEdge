@@ -5,6 +5,8 @@ pandas
 numpy
 scipy
 httpx
+requests
 python-dateutil
+matplotlib
 pytest
 pytest-asyncio

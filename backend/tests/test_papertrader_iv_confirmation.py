@@ -62,7 +62,7 @@ def test_trade_has_wall_levels_for_dict_or_numeric():
 def test_snapshot_key_strike_iv_collects_wall_and_atm_tags(monkeypatch):
     inserted_tags = []
 
-    def fake_quote(ticker, expiry, strike, side):
+    def fake_quote(ticker, expiry, strike, side, chain=None):
         return {
             "strike": strike,
             "iv": 0.25,
@@ -106,3 +106,152 @@ def test_iv_confirmation_for_straddle_uses_wall_deltas(monkeypatch):
     monkeypatch.setattr(monitor.db, "get_latest_two_iv_snapshots", fake_latest_two)
     trade = {"ticker": "TEST", "expiry_date": "2026-02-27", "option_type": "STRADDLE"}
     assert monitor._compute_iv_confirmation(conn=None, trade=trade) == 1
+
+
+def _directional_fixture(thesis="MOMENTUM_BREAKOUT", dte=1, confidence="MEDIUM", edge_type="WITH_DEALER"):
+    pos = {
+        "action": "BUY",
+        "type": "early_momentum",
+        "option_type": "CALL",
+        "strike": 105.0,
+        "target": "$110 call wall",
+        "stop": "Cut at -50% of premium",
+        "dte_guidance": "0-3 DTE",
+        "confidence": confidence,
+        "edge_type": edge_type,
+    }
+    response = {
+        "ticker": "TEST",
+        "expiration": "2026-02-27",
+        "dte": dte,
+        "directional": {"thesis": thesis, "atm_iv": 30.0, "wall_break": {"probability": 25}},
+        "reynolds": {"number": 1.1, "regime": "TURBULENT"},
+        "acf_data": {"stability": "STABLE"},
+        "gex_profile": {"entropy": {"regime": "MODERATE"}},
+        "vol_analysis": {"vrp": {"label": "FAIR"}, "iv_hv": {"iv_hv_ratio": 1.2}},
+        "key_levels": {"call_wall": 110.0, "put_wall": 95.0, "max_pain": 102.0},
+    }
+    return pos, response
+
+
+def test_challenger_filters_breakout_without_high_confidence(monkeypatch):
+    monkeypatch.setattr(scanner.pricing, "get_option_mid", lambda *args, **kwargs: 1.0)
+    monkeypatch.setattr(scanner, "CHALLENGER_V1_ENABLED", True)
+    monkeypatch.setattr(scanner, "CHALLENGER_BREAKOUT_MIN_CONFIDENCE", "HIGH")
+    monkeypatch.setattr(scanner, "CHALLENGER_MIN_DIRECTIONAL_DTE", 0)
+    monkeypatch.setattr(scanner, "CHALLENGER_DTE_BYPASS_MIN_CONFIDENCE", "HIGH")
+    monkeypatch.setattr(scanner, "CHALLENGER_UNCONFIRMED_STOP_PCT", 45.0)
+    pos, response = _directional_fixture(thesis="MOMENTUM_BREAKOUT", dte=3, confidence="MEDIUM")
+    trade = scanner._build_directional_trade(pos, response, 100.0)
+    assert trade is None
+
+
+def test_challenger_filters_low_dte_without_high_confidence(monkeypatch):
+    monkeypatch.setattr(scanner.pricing, "get_option_mid", lambda *args, **kwargs: 1.0)
+    monkeypatch.setattr(scanner, "CHALLENGER_V1_ENABLED", True)
+    monkeypatch.setattr(scanner, "CHALLENGER_BREAKOUT_MIN_CONFIDENCE", "HIGH")
+    monkeypatch.setattr(scanner, "CHALLENGER_MIN_DIRECTIONAL_DTE", 2)
+    monkeypatch.setattr(scanner, "CHALLENGER_DTE_BYPASS_MIN_CONFIDENCE", "HIGH")
+    monkeypatch.setattr(scanner, "CHALLENGER_UNCONFIRMED_STOP_PCT", 45.0)
+    pos, response = _directional_fixture(thesis="MOMENTUM_EARLY", dte=1, confidence="MEDIUM")
+    trade = scanner._build_directional_trade(pos, response, 100.0)
+    assert trade is None
+
+
+def test_challenger_tightens_stop_for_unconfirmed_proxy(monkeypatch):
+    monkeypatch.setattr(scanner.pricing, "get_option_mid", lambda *args, **kwargs: 1.0)
+    monkeypatch.setattr(scanner, "CHALLENGER_V1_ENABLED", True)
+    monkeypatch.setattr(scanner, "CHALLENGER_BREAKOUT_MIN_CONFIDENCE", "HIGH")
+    monkeypatch.setattr(scanner, "CHALLENGER_MIN_DIRECTIONAL_DTE", 0)
+    monkeypatch.setattr(scanner, "CHALLENGER_DTE_BYPASS_MIN_CONFIDENCE", "HIGH")
+    monkeypatch.setattr(scanner, "CHALLENGER_UNCONFIRMED_STOP_PCT", 45.0)
+    pos, response = _directional_fixture(thesis="MOMENTUM_EARLY", dte=3, confidence="MEDIUM")
+    trade = scanner._build_directional_trade(pos, response, 100.0)
+    assert trade is not None
+    assert trade["stop_loss_pct"] == 45.0
+
+
+def test_challenger_v2_blocks_neutral_thesis(monkeypatch):
+    monkeypatch.setattr(scanner.pricing, "get_option_mid", lambda *args, **kwargs: 1.0)
+    monkeypatch.setattr(scanner, "CHALLENGER_V1_ENABLED", False)
+    monkeypatch.setattr(scanner, "CHALLENGER_V2_ENABLED", True)
+    monkeypatch.setattr(scanner, "CH_V2_BLOCK_THESES", "NEUTRAL")
+    monkeypatch.setattr(scanner, "CH_V2_MIN_DIRECTIONAL_DTE", 0)
+    monkeypatch.setattr(scanner, "CH_V2_DTE_BYPASS_MIN_CONFIDENCE", "HIGH")
+    monkeypatch.setattr(scanner, "CH_V2_BREAKOUT_MIN_CONFIDENCE", "HIGH")
+    monkeypatch.setattr(scanner, "CH_V2_BREAKOUT_REQUIRE_WITH_DEALER", True)
+    monkeypatch.setattr(scanner, "CH_V2_UNCONFIRMED_STOP_PCT", 40.0)
+    pos, response = _directional_fixture(thesis="NEUTRAL", dte=3, confidence="HIGH")
+    trade = scanner._build_directional_trade(pos, response, 100.0)
+    assert trade is None
+
+
+def test_challenger_v2_breakout_requires_with_dealer(monkeypatch):
+    monkeypatch.setattr(scanner.pricing, "get_option_mid", lambda *args, **kwargs: 1.0)
+    monkeypatch.setattr(scanner, "CHALLENGER_V1_ENABLED", False)
+    monkeypatch.setattr(scanner, "CHALLENGER_V2_ENABLED", True)
+    monkeypatch.setattr(scanner, "CH_V2_BLOCK_THESES", "")
+    monkeypatch.setattr(scanner, "CH_V2_MIN_DIRECTIONAL_DTE", 0)
+    monkeypatch.setattr(scanner, "CH_V2_DTE_BYPASS_MIN_CONFIDENCE", "HIGH")
+    monkeypatch.setattr(scanner, "CH_V2_BREAKOUT_MIN_CONFIDENCE", "HIGH")
+    monkeypatch.setattr(scanner, "CH_V2_BREAKOUT_REQUIRE_WITH_DEALER", True)
+    monkeypatch.setattr(scanner, "CH_V2_UNCONFIRMED_STOP_PCT", 40.0)
+    pos, response = _directional_fixture(
+        thesis="MOMENTUM_BREAKOUT", dte=3, confidence="HIGH", edge_type="COUNTER_DEALER"
+    )
+    trade = scanner._build_directional_trade(pos, response, 100.0)
+    assert trade is None
+
+
+def test_challenger_v2_tightens_stop_more_than_v1(monkeypatch):
+    monkeypatch.setattr(scanner.pricing, "get_option_mid", lambda *args, **kwargs: 1.0)
+    monkeypatch.setattr(scanner, "CHALLENGER_V1_ENABLED", False)
+    monkeypatch.setattr(scanner, "CHALLENGER_V2_ENABLED", True)
+    monkeypatch.setattr(scanner, "CH_V2_BLOCK_THESES", "")
+    monkeypatch.setattr(scanner, "CH_V2_MIN_DIRECTIONAL_DTE", 0)
+    monkeypatch.setattr(scanner, "CH_V2_DTE_BYPASS_MIN_CONFIDENCE", "HIGH")
+    monkeypatch.setattr(scanner, "CH_V2_BREAKOUT_MIN_CONFIDENCE", "HIGH")
+    monkeypatch.setattr(scanner, "CH_V2_BREAKOUT_REQUIRE_WITH_DEALER", True)
+    monkeypatch.setattr(scanner, "CH_V2_UNCONFIRMED_STOP_PCT", 40.0)
+    pos, response = _directional_fixture(thesis="MOMENTUM_EARLY", dte=3, confidence="MEDIUM")
+    trade = scanner._build_directional_trade(pos, response, 100.0)
+    assert trade is not None
+    assert trade["stop_loss_pct"] == 40.0
+
+
+def test_scan_ticker_links_trade_to_signal_id(monkeypatch):
+    response = {
+        "ticker": "TEST",
+        "spot": 100.0,
+        "directional": {"positions": [{"name": "x"}]},
+        "straddle_analysis": {"verdict": "WAIT"},
+    }
+
+    signal_calls = []
+    trade_calls = []
+    ids = {"sig": 0}
+
+    def fake_insert_signal(conn, scan_id, sig):
+        ids["sig"] += 1
+        signal_calls.append((scan_id, sig))
+        return ids["sig"]
+
+    def fake_insert_trade(conn, scan_id, ticker, trade, source_signal_id=None):
+        trade_calls.append((scan_id, ticker, trade, source_signal_id))
+        return 999
+
+    monkeypatch.setattr(scanner, "fetch_dealer_map", lambda ticker, account_size=None: response)
+    monkeypatch.setattr(scanner.db, "insert_scan", lambda conn, ticker, spot, resp: 42)
+    monkeypatch.setattr(scanner, "_build_directional_signal", lambda pos, resp, spot: {"ticker": "TEST"})
+    monkeypatch.setattr(scanner, "_build_directional_trade", lambda pos, resp, spot: {"strike": 100, "option_type": "CALL", "expiry_date": "2026-03-20"})
+    monkeypatch.setattr(scanner, "_build_straddle_signal", lambda resp, spot: None)
+    monkeypatch.setattr(scanner, "_build_straddle_trade", lambda resp, spot: None)
+    monkeypatch.setattr(scanner.db, "insert_signal", fake_insert_signal)
+    monkeypatch.setattr(scanner.db, "insert_trade", fake_insert_trade)
+    monkeypatch.setattr(scanner.db, "has_open_trade", lambda *args, **kwargs: False)
+
+    out = scanner.scan_ticker("TEST", conn=object(), account_size=None)
+    assert out == [999]
+    assert len(signal_calls) == 1
+    assert len(trade_calls) == 1
+    assert trade_calls[0][3] == 1

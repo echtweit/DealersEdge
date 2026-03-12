@@ -161,6 +161,16 @@ def overall_report() -> str:
                 f"    Unconfirmed: n={u['count']} | win={u['win_rate']}% | avg={_pct(u['avg_pnl_pct'])}"
             )
 
+        grav_rows = [t for t in trades if t.get("dist_compression_pct") is not None]
+        if grav_rows:
+            mp_hits = [t for t in grav_rows if t.get("hit_max_pain_flag") == 1]
+            avg_compression = sum(t["dist_compression_pct"] for t in grav_rows) / len(grav_rows)
+            hit_rate = (len(mp_hits) / len(grav_rows)) * 100
+            lines.append("\n  Max Pain Gravitation (closed trades with metrics)")
+            lines.append(f"    Sample:      n={len(grav_rows)}")
+            lines.append(f"    Hit rate:    {hit_rate:.1f}% (<=0.25% distance during trade)")
+            lines.append(f"    Avg compress:{avg_compression:+.3f}% distance-to-max-pain")
+
     lines.append("")
     return "\n".join(lines)
 

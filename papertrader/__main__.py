@@ -7,30 +7,63 @@ Usage:
     python -m papertrader status                 Show open positions
     python -m papertrader report                 Overall performance summary
     python -m papertrader analyze                Signal attribution breakdown
+    python -m papertrader eval-signals           Evaluate signal-layer outcomes (1/3/5D)
+    python -m papertrader signal-report          Signal-layer quality report
+    python -m papertrader compare-layers         Compare signal quality vs execution results
     python -m papertrader history [--limit N]    Closed trade log
     python -m papertrader health                 System health check
     python -m papertrader cron                   Print crontab snippet
+    python -m papertrader ensure-backend         Ensure backend is running
 """
 import argparse
 import logging
 import sys
 
 from . import db
-from .config import DEFAULT_WATCHLIST, DEFAULT_ACCOUNT_SIZE, CRON_TEMPLATE
+from .backend_guard import ensure_backend_available
+from .config import (
+    DEFAULT_WATCHLIST,
+    DEFAULT_ACCOUNT_SIZE,
+    CRON_TEMPLATE,
+    CHALLENGER_V1_ENABLED,
+    CHALLENGER_V2_ENABLED,
+    CHALLENGER_V3_ENABLED,
+)
 from .scanner import scan_watchlist
-from .monitor import check_all_open
+from .monitor import check_all_open, check_all_open_with_meta
 from .reporter import (
     overall_report,
     signal_attribution,
     open_positions_report,
     trade_history,
 )
+from .signal_evaluator import (
+    evaluate_pending_signals,
+    signal_quality_report,
+    signal_execution_bridge_report,
+)
 
 
 def cmd_scan(args):
+    ok, msg = ensure_backend_available()
+    if ok:
+        print(f"Backend guard: {msg}")
+    else:
+        print(f"Backend guard: {msg}")
+        sys.exit(1)
+
     tickers = args.tickers if args.tickers else DEFAULT_WATCHLIST
     account_size = args.account_size or DEFAULT_ACCOUNT_SIZE
     print(f"Scanning {len(tickers)} tickers: {', '.join(tickers)}")
+    if CHALLENGER_V3_ENABLED:
+        profile = "challenger_v3"
+    elif CHALLENGER_V2_ENABLED:
+        profile = "challenger_v2"
+    elif CHALLENGER_V1_ENABLED:
+        profile = "challenger_v1"
+    else:
+        profile = "baseline_v1"
+    print(f"Profile: {profile}")
     if account_size:
         print(f"Account size: ${account_size:,.0f}")
     print()
@@ -49,10 +82,14 @@ def cmd_scan(args):
 
 def cmd_check(args):
     print("Checking open positions for exit conditions ...")
-    results = check_all_open()
+    out = check_all_open_with_meta()
+    results = out["results"]
+    degraded_count = out.get("degraded_count", 0)
+    sig = evaluate_pending_signals(limit=500)
 
     if not results:
         print("No open trades to check.")
+        print(f"Signal eval: processed={sig['processed']}, updated={sig['updated']}")
         return
 
     closed = {tid: r for tid, r in results.items() if r != "OPEN"}
@@ -64,6 +101,9 @@ def cmd_check(args):
             print(f"  Trade #{tid}: {reason}")
 
     print(f"Still open: {len(still_open)}")
+    if degraded_count > 0:
+        print(f"Degraded pricing marks: {degraded_count} trade(s) had missing option marks this cycle.")
+    print(f"Signal eval: processed={sig['processed']}, updated={sig['updated']}")
 
 
 def cmd_status(args):
@@ -76,6 +116,19 @@ def cmd_report(args):
 
 def cmd_analyze(args):
     print(signal_attribution())
+
+
+def cmd_eval_signals(args):
+    res = evaluate_pending_signals(limit=args.limit)
+    print(f"Evaluated signals: processed={res['processed']}, updated={res['updated']}")
+
+
+def cmd_signal_report(args):
+    print(signal_quality_report())
+
+
+def cmd_compare_layers(args):
+    print(signal_execution_bridge_report())
 
 
 def cmd_history(args):
@@ -156,6 +209,13 @@ def cmd_cron(args):
     print(CRON_TEMPLATE.format(project_dir=project_dir))
 
 
+def cmd_ensure_backend(args):
+    ok, msg = ensure_backend_available()
+    print(f"Backend guard: {msg}")
+    if not ok:
+        sys.exit(1)
+
+
 def main():
     logging.basicConfig(
         level=logging.INFO,
@@ -183,6 +243,10 @@ def main():
     p_report = sub.add_parser("report", help="Overall performance report")
 
     p_analyze = sub.add_parser("analyze", help="Signal attribution analysis")
+    p_eval_signals = sub.add_parser("eval-signals", help="Evaluate signal-layer outcomes")
+    p_eval_signals.add_argument("--limit", type=int, default=500, help="Max signals to process")
+    p_signal_report = sub.add_parser("signal-report", help="Signal-layer quality report")
+    p_compare_layers = sub.add_parser("compare-layers", help="Compare signal and execution layers")
 
     p_history = sub.add_parser("history", help="Closed trade log")
     p_history.add_argument("--limit", type=int, default=50, help="Max trades to show")
@@ -190,6 +254,7 @@ def main():
     p_health = sub.add_parser("health", help="System health check")
 
     p_cron = sub.add_parser("cron", help="Print crontab snippet")
+    p_ensure_backend = sub.add_parser("ensure-backend", help="Ensure backend is healthy (autostart if down)")
 
     args = parser.parse_args()
 
@@ -201,9 +266,13 @@ def main():
         "status": cmd_status,
         "report": cmd_report,
         "analyze": cmd_analyze,
+        "eval-signals": cmd_eval_signals,
+        "signal-report": cmd_signal_report,
+        "compare-layers": cmd_compare_layers,
         "history": cmd_history,
         "health": cmd_health,
         "cron": cmd_cron,
+        "ensure-backend": cmd_ensure_backend,
     }
 
     dispatch[args.command](args)

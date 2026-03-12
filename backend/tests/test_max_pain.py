@@ -94,3 +94,29 @@ class TestFindOiWalls:
         result = find_oi_walls(calls, puts, 100)
         assert len(result["top_call_walls"]) <= 5
         assert len(result["top_put_walls"]) <= 5
+
+    def test_ignores_far_otm_lottery_put_wall_when_near_exists(self):
+        # Very large OI far below spot should not dominate near-spot wall selection.
+        spot = 100
+        calls = [
+            make_option(105, oi=300),
+            make_option(110, oi=400),
+        ]
+        puts = [
+            make_option(95, oi=800),    # near-spot, should win
+            make_option(80, oi=300),    # in-band
+            make_option(50, oi=10000),  # far OTM outlier (outside 20% band)
+        ]
+        result = find_oi_walls(calls, puts, spot)
+        assert result["put_wall"]["strike"] == 95
+        assert result["put_wall_scope"] == "near_spot"
+
+    def test_falls_back_to_full_chain_when_no_near_walls(self):
+        spot = 100
+        calls = [make_option(140, oi=1200)]  # no calls inside +20% band
+        puts = [make_option(40, oi=900)]      # no puts inside -20% band
+        result = find_oi_walls(calls, puts, spot)
+        assert result["call_wall"]["strike"] == 140
+        assert result["put_wall"]["strike"] == 40
+        assert result["call_wall_scope"] == "full_chain"
+        assert result["put_wall_scope"] == "full_chain"
