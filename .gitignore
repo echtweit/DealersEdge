@@ -34,6 +34,7 @@ papertrader/cron_challenger.log
 papertrader/cron_challenger_v1.log
 papertrader/cron_challenger_v2.log
 papertrader/cron_challenger_v3.log
+papertrader/cron_challenger_v4.log
 
 # Analysis artifacts
 analysis/output/

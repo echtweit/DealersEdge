@@ -37,6 +37,8 @@ from .config import (
     CH_V3_BLOCK_THESES,
     CH_V3_BLOCKED_TICKERS,
     CH_V3_SKIP_STRADDLE_TURBULENT,
+    CHALLENGER_V4_ENABLED,
+    CH_V4_ENABLE_TICKER_BLOCK,
 )
 
 log = logging.getLogger(__name__)
@@ -123,6 +125,8 @@ def _is_breakout_thesis(thesis: Optional[str]) -> bool:
 
 
 def _active_challenger_profile() -> Optional[str]:
+    if CHALLENGER_V4_ENABLED:
+        return "v4"
     if CHALLENGER_V3_ENABLED:
         return "v3"
     if CHALLENGER_V2_ENABLED:
@@ -146,6 +150,10 @@ def _blocked_theses_v3() -> set[str]:
     return {s.strip().upper() for s in raw.split(",") if s.strip()}
 
 
+def _is_v3_family(profile: Optional[str]) -> bool:
+    return profile in {"v3", "v4"}
+
+
 def _challenger_directional_reject_reason(
     pos: dict, directional: dict, dte: int, response: dict | None = None
 ) -> Optional[str]:
@@ -158,7 +166,7 @@ def _challenger_directional_reject_reason(
     thesis_upper = (thesis or "").upper()
     edge_type = (pos.get("edge_type") or "").upper()
 
-    if profile == "v3":
+    if _is_v3_family(profile):
         blocked = _blocked_theses_v3()
         if thesis_upper in blocked:
             return "blocked_thesis"
@@ -343,7 +351,7 @@ def _build_directional_trade(pos: dict, response: dict,
     stop_loss_pct = _parse_stop_loss_pct(pos.get("stop", ""))
     profile = _active_challenger_profile()
     if profile and not _iv_confirmed_entry_proxy(pos):
-        if profile == "v3":
+        if _is_v3_family(profile):
             stop_cap = CH_V3_UNCONFIRMED_STOP_PCT
         elif profile == "v2":
             stop_cap = CH_V2_UNCONFIRMED_STOP_PCT
@@ -553,14 +561,20 @@ def scan_ticker(
     Scan one ticker: call API, open paper trades for actionable signals.
     Returns list of new trade IDs.
     """
-    if CHALLENGER_V3_ENABLED and ticker.upper() in CH_V3_BLOCKED_TICKERS:
-        log.info("v3: skip blocked ticker %s", ticker)
+    profile = _active_challenger_profile()
+    apply_ticker_block = False
+    if profile == "v3":
+        apply_ticker_block = True
+    elif profile == "v4":
+        apply_ticker_block = CH_V4_ENABLE_TICKER_BLOCK
+    if apply_ticker_block and ticker.upper() in CH_V3_BLOCKED_TICKERS:
+        log.info("%s: skip blocked ticker %s", profile, ticker)
         _log_no_trade(
             conn,
             ticker=ticker,
             candidate_kind="TICKER",
             reason_code="blocked_ticker",
-            metadata={"profile": "v3"},
+            metadata={"profile": profile},
         )
         return []
 
@@ -659,7 +673,7 @@ def scan_ticker(
     straddle_skip_reason = None
     if straddle_trade is None:
         straddle_skip_reason = "straddle_not_actionable"
-    if CHALLENGER_V3_ENABLED and CH_V3_SKIP_STRADDLE_TURBULENT:
+    if _is_v3_family(profile) and CH_V3_SKIP_STRADDLE_TURBULENT:
         re_regime = (response.get("reynolds", {}).get("regime") or "").upper()
         if re_regime == "TURBULENT":
             straddle_trade = None

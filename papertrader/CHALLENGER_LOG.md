@@ -191,3 +191,39 @@ This file is the single source of truth for what changes are active in the chall
 - Min sample before decision: 50 closed trades
 - Abort conditions: if avg P&L < -20% after 30+ trades, pause and re-evaluate
 
+## challenger_v4 - 2026-03-12
+
+- Status: implemented (inactive until `PT_CHALLENGER_V4=1`)
+- Based on baseline: `baseline_v1`
+- Compares against: `challenger_v3` (single-change isolation test)
+- Motivation: test whether v3 ticker blacklist is overly restrictive.
+
+### Change Set
+
+- Inherits all v3 rules unchanged (dynamic exits, Reynolds gates, DTE/confidence gates, thesis blocks, straddle turbulence skip).
+- **Single isolated change:** disable ticker blocklist for this profile.
+  - `PT_CHALLENGER_V4=1`
+  - `PT_CH_V4_ENABLE_TICKER_BLOCK=0` (default for v4)
+
+### Hypothesis
+
+- If v3 edge remains robust without ticker exclusions, then blacklist may be unnecessary complexity.
+- If expectancy degrades materially, keep v3 blacklist in the promoted profile.
+
+### Activation
+
+- Start: pending (with next cron refresh)
+- Scope: full watchlist execution layer in a separate DB (`papertrader_challenger_v4.db`)
+- Env flags:
+  - `PT_CHALLENGER_V4=1`
+  - `PT_CH_V4_ENABLE_TICKER_BLOCK=0`
+  - `PT_EXIT_ON_SIGNAL_FLIP=1`
+  - `PT_EXIT_ON_REGIME_BREAK=1`
+  - `PT_EXIT_ON_IV_CONFIRMATION_LOSS=1`
+
+### Freeze Window
+
+- Freeze policy: no strategy/risk-rule changes for one week while all profiles continue scanning/checking.
+- Freeze start: `2026-03-12` (NY)
+- Freeze end target: `2026-03-19` (NY)
+

@@ -1,46 +1,54 @@
-# ---------- Concurrent baseline + challenger_v1 + challenger_v2 + challenger_v3 ----------
+# ---------- Concurrent baseline + challenger_v1 + challenger_v2 + challenger_v3 + challenger_v4 ----------
 # Put these variable lines at the top of your crontab.
 PT_BASE_DB="/Users/japre/OptionsTool/papertrader/papertrader_baseline.db"
 PT_CH_V1_DB="/Users/japre/OptionsTool/papertrader/papertrader_challenger_v1.db"
 PT_CH_V2_DB="/Users/japre/OptionsTool/papertrader/papertrader_challenger_v2.db"
 PT_CH_V3_DB="/Users/japre/OptionsTool/papertrader/papertrader_challenger_v3.db"
+PT_CH_V4_DB="/Users/japre/OptionsTool/papertrader/papertrader_challenger_v4.db"
 
 # Scan at 10:00 ET (all start same minute)
 0 15 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_BASE_DB" /Users/japre/miniconda3/bin/python -m papertrader ensure-backend >> papertrader/cron_baseline.log 2>&1 && PT_DB_PATH="$PT_BASE_DB" /Users/japre/miniconda3/bin/python -m papertrader scan >> papertrader/cron_baseline.log 2>&1
 0 15 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V1_DB" PT_CHALLENGER_V1=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader ensure-backend >> papertrader/cron_challenger_v1.log 2>&1 && PT_DB_PATH="$PT_CH_V1_DB" PT_CHALLENGER_V1=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader scan >> papertrader/cron_challenger_v1.log 2>&1
 0 15 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V2_DB" PT_CHALLENGER_V2=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader ensure-backend >> papertrader/cron_challenger_v2.log 2>&1 && PT_DB_PATH="$PT_CH_V2_DB" PT_CHALLENGER_V2=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader scan >> papertrader/cron_challenger_v2.log 2>&1
 0 15 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V3_DB" PT_CHALLENGER_V3=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader ensure-backend >> papertrader/cron_challenger_v3.log 2>&1 && PT_DB_PATH="$PT_CH_V3_DB" PT_CHALLENGER_V3=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader scan >> papertrader/cron_challenger_v3.log 2>&1
+0 15 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V4_DB" PT_CHALLENGER_V4=1 PT_CH_V4_ENABLE_TICKER_BLOCK=0 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader ensure-backend >> papertrader/cron_challenger_v4.log 2>&1 && PT_DB_PATH="$PT_CH_V4_DB" PT_CHALLENGER_V4=1 PT_CH_V4_ENABLE_TICKER_BLOCK=0 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader scan >> papertrader/cron_challenger_v4.log 2>&1
 
 # Check 6x/day during market hours (all start same minute)
 30 15 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_BASE_DB" /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_baseline.log 2>&1
 30 15 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V1_DB" PT_CHALLENGER_V1=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v1.log 2>&1
 30 15 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V2_DB" PT_CHALLENGER_V2=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v2.log 2>&1
 30 15 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V3_DB" PT_CHALLENGER_V3=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v3.log 2>&1
+30 15 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V4_DB" PT_CHALLENGER_V4=1 PT_CH_V4_ENABLE_TICKER_BLOCK=0 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v4.log 2>&1
 
 30 16 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_BASE_DB" /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_baseline.log 2>&1
 30 16 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V1_DB" PT_CHALLENGER_V1=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v1.log 2>&1
 30 16 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V2_DB" PT_CHALLENGER_V2=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v2.log 2>&1
 30 16 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V3_DB" PT_CHALLENGER_V3=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v3.log 2>&1
+30 16 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V4_DB" PT_CHALLENGER_V4=1 PT_CH_V4_ENABLE_TICKER_BLOCK=0 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v4.log 2>&1
 
 30 17 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_BASE_DB" /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_baseline.log 2>&1
 30 17 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V1_DB" PT_CHALLENGER_V1=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v1.log 2>&1
 30 17 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V2_DB" PT_CHALLENGER_V2=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v2.log 2>&1
 30 17 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V3_DB" PT_CHALLENGER_V3=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v3.log 2>&1
+30 17 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V4_DB" PT_CHALLENGER_V4=1 PT_CH_V4_ENABLE_TICKER_BLOCK=0 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v4.log 2>&1
 
 30 18 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_BASE_DB" /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_baseline.log 2>&1
 30 18 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V1_DB" PT_CHALLENGER_V1=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v1.log 2>&1
 30 18 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V2_DB" PT_CHALLENGER_V2=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v2.log 2>&1
 30 18 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V3_DB" PT_CHALLENGER_V3=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v3.log 2>&1
+30 18 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V4_DB" PT_CHALLENGER_V4=1 PT_CH_V4_ENABLE_TICKER_BLOCK=0 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v4.log 2>&1
 
 30 19 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_BASE_DB" /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_baseline.log 2>&1
 30 19 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V1_DB" PT_CHALLENGER_V1=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v1.log 2>&1
 30 19 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V2_DB" PT_CHALLENGER_V2=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v2.log 2>&1
 30 19 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V3_DB" PT_CHALLENGER_V3=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v3.log 2>&1
+30 19 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V4_DB" PT_CHALLENGER_V4=1 PT_CH_V4_ENABLE_TICKER_BLOCK=0 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v4.log 2>&1
 
 45 20 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_BASE_DB" /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_baseline.log 2>&1
 45 20 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V1_DB" PT_CHALLENGER_V1=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v1.log 2>&1
 45 20 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V2_DB" PT_CHALLENGER_V2=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v2.log 2>&1
 45 20 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V3_DB" PT_CHALLENGER_V3=1 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v3.log 2>&1
+45 20 * * 1-5  cd /Users/japre/OptionsTool && PT_DB_PATH="$PT_CH_V4_DB" PT_CHALLENGER_V4=1 PT_CH_V4_ENABLE_TICKER_BLOCK=0 PT_EXIT_ON_SIGNAL_FLIP=1 PT_EXIT_ON_REGIME_BREAK=1 PT_EXIT_ON_IV_CONFIRMATION_LOSS=1 /Users/japre/miniconda3/bin/python -m papertrader check >> papertrader/cron_challenger_v4.log 2>&1
 
 
 
@@ -52,8 +60,10 @@ PT_DB_PATH="papertrader/papertrader_baseline.db" python -m papertrader report
 PT_DB_PATH="papertrader/papertrader_challenger_v1.db" python -m papertrader report
 PT_DB_PATH="papertrader/papertrader_challenger_v2.db" python -m papertrader report
 PT_DB_PATH="papertrader/papertrader_challenger_v3.db" python -m papertrader report
+PT_DB_PATH="papertrader/papertrader_challenger_v4.db" python -m papertrader report
 
 PT_DB_PATH="papertrader/papertrader_baseline.db" python -m papertrader compare-layers
 PT_DB_PATH="papertrader/papertrader_challenger_v1.db" python -m papertrader compare-layers
 PT_DB_PATH="papertrader/papertrader_challenger_v2.db" python -m papertrader compare-layers
 PT_DB_PATH="papertrader/papertrader_challenger_v3.db" python -m papertrader compare-layers
+PT_DB_PATH="papertrader/papertrader_challenger_v4.db" python -m papertrader compare-layers

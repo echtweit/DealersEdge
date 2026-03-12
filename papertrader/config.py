@@ -78,6 +78,11 @@ CH_V3_BLOCKED_TICKERS = {
 }
 CH_V3_SKIP_STRADDLE_TURBULENT = os.environ.get("PT_CH_V3_SKIP_STRADDLE_TURBULENT", "1") == "1"
 
+# Challenger v4 — isolated experiment: v3 logic with ticker-block disabled.
+# If v4 is enabled it takes priority over v3/v2/v1.
+CHALLENGER_V4_ENABLED = os.environ.get("PT_CHALLENGER_V4", "0") == "1"
+CH_V4_ENABLE_TICKER_BLOCK = os.environ.get("PT_CH_V4_ENABLE_TICKER_BLOCK", "0") == "1"
+
 # Cron templates (informational — user installs manually)
 CRON_TEMPLATE = """\
 # PaperTrader cron jobs (adjust paths to your environment)

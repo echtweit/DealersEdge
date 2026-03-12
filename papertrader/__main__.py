@@ -28,6 +28,7 @@ from .config import (
     CHALLENGER_V1_ENABLED,
     CHALLENGER_V2_ENABLED,
     CHALLENGER_V3_ENABLED,
+    CHALLENGER_V4_ENABLED,
 )
 from .scanner import scan_watchlist
 from .monitor import check_all_open, check_all_open_with_meta
@@ -55,7 +56,9 @@ def cmd_scan(args):
     tickers = args.tickers if args.tickers else DEFAULT_WATCHLIST
     account_size = args.account_size or DEFAULT_ACCOUNT_SIZE
     print(f"Scanning {len(tickers)} tickers: {', '.join(tickers)}")
-    if CHALLENGER_V3_ENABLED:
+    if CHALLENGER_V4_ENABLED:
+        profile = "challenger_v4"
+    elif CHALLENGER_V3_ENABLED:
         profile = "challenger_v3"
     elif CHALLENGER_V2_ENABLED:
         profile = "challenger_v2"
