@@ -2,10 +2,11 @@
 
 A dealer-aware options trading tool for 5–20 DTE plays. Maps the dealer's mechanical hedging obligations and identifies exploitable trade setups.
 
-> Educational side project only — this is not a professional trading system and is not intended for live trading or investment advice.  
-> The models and signals are currently being validated through forward testing.
+> Educational side project only — this is not a professional trading system and is not intended for live trading or investment advice.
 
 > **Open interest caveat:** Dealer GEX, walls, max pain, and flip levels are built from **open interest (OI)**. This repo pulls OI via **yfinance**, which reflects **end-of-day** exchange reporting — not continual **intraday** OI updates. During the session, large trades roll the dealer book while the map still shows yesterday's positioning. **Without a live or frequently refreshed OI feed, this is not a great tool for intraday dealer-flow trading** — treat outputs as a rough prior on where hedging *was*, not a real-time map of where dealers *are* now.
+
+> **Forward-testing results (PaperTrader, Mar–May 2026):** We ran automated paper trades on every actionable signal across ~48 market days. **This did not produce a meaningful edge.** On the frozen baseline profile (`papertrader_baseline.db`, 2026-03-02 … 2026-05-22): **1,331 closed trades**, **24.8% win rate**, **−18.7% avg P&L per trade**, **−$68k paper total**, **Sharpe −0.19** — losses were stop-driven (628 stop-outs vs 425 targets). Directional signal quality was weak too: **42.3% H5 hit rate** on 1,453 evaluated signals (~coin flip). Closed-trade breakdown by edge: **AGAINST_DEALER** 12.1% WR / −26.4% avg (n=479), **WITH_DEALER** 23.3% / −19.7% (n=301), **NEUTRAL** 34.9% / −7.2% (n=450) — best bucket still negative expectancy. Four challenger rule variants (dynamic exits, Reynolds gates, ticker/thesis filters in `papertrader/CHALLENGER_LOG.md`) **trimmed loss severity slightly but never flipped expectancy positive** — e.g. challenger_v3 at 264 trades still showed 22.4% WR and −4.1% avg P&L. Reproduce: `PT_DB_PATH=papertrader/papertrader_baseline.db python -m papertrader report` and `python -m papertrader generalized-report --all-profiles`. See `papertrader/analysis/README.md` for the full attribution pipeline.
 
 ## What It Does
 
@@ -54,6 +55,8 @@ On pushes and pull requests to `main` or `master`, [GitHub Actions](.github/work
 ## Paper Trader (Forward Testing)
 
 A cron-driven forward-testing framework that auto-enters all DealersEdge signals, tracks actual option P&L via yfinance, and stores full signal snapshots for attribution analysis.
+
+**Outcome so far:** Baseline and challenger profiles all lost money on paper, with win rates in the **18–25%** range and negative average P&L per trade. The framework is useful for **measuring** whether dealer-map signals predict option outcomes — our data says they largely do not, at least with stale OI and yfinance marks. Full numbers are in the callout at the top of this README and in `papertrader/CHALLENGER_LOG.md`.
 
 ```bash
 # Ensure backend is running (auto-starts if down), then:
@@ -133,7 +136,7 @@ Outputs are written to `analysis/output/<timestamp>/dealer_behavior/` and includ
 
 1. **Scan** calls `/api/dealer-map/{ticker}` for each ticker, stores the full response, and opens paper trades for every actionable signal (directional positions + straddles/strangles).
 2. **Monitor** periodically fetches live option prices and checks exit conditions: underlying hits target, option premium drops past stop-loss %, DTE reaches 0, or max hold time exceeded.
-3. **Reporter** queries the SQLite trade journal to compute win rates, P&L, Sharpe ratio, and breaks down performance by regime (GEX, Reynolds, ACF), thesis type, confidence level, and VRP — so you can see exactly which signals hold up in practice.
+3. **Reporter** queries the SQLite trade journal to compute win rates, P&L, Sharpe ratio, and breaks down performance by regime (GEX, Reynolds, ACF), thesis type, confidence level, and VRP — use this to see **which signals failed** in practice (most did in our run).
 
 Every trade stores the complete signal snapshot at entry time (regime labels, Kelly sizing, wall-break probability, entropy, etc.) enabling rigorous attribution analysis.
 
