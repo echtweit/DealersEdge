@@ -5,15 +5,17 @@ A dealer-aware options trading tool for 5–20 DTE plays. Maps the dealer's mech
 > Educational side project only — this is not a professional trading system and is not intended for live trading or investment advice.  
 > The models and signals are currently being validated through forward testing.
 
+> **Open interest caveat:** Dealer GEX, walls, max pain, and flip levels are built from **open interest (OI)**. This repo pulls OI via **yfinance**, which reflects **end-of-day** exchange reporting — not continual **intraday** OI updates. During the session, large trades roll the dealer book while the map still shows yesterday's positioning. **Without a live or frequently refreshed OI feed, this is not a great tool for intraday dealer-flow trading** — treat outputs as a rough prior on where hedging *was*, not a real-time map of where dealers *are* now.
+
 ## What It Does
 
 - **Dealer Positioning Map**: Calculates GEX (Gamma Exposure) profile, flip point, max pain, call/put walls for any ticker
 - **Regime Classification**: Identifies whether dealers are stabilizing (positive gamma) or amplifying (negative gamma) price action
 - **Setup Detection**: Automatically classifies conditions into four setup types:
-  - **Pin Trade** — Sell premium when dealers are pinning near max pain
+  - **Pin Trade** — In **positive gamma** (long-gamma hedging): sell premium when **mechanical pinning** (hedge-toward-strike + charm) favors **compression** toward max pain / high-GEX — *not* the same as “price sitting near a strike,” and **not** the story when **negative gamma** dominates (amplification, not pin)
   - **Wall Fade** — Fade price into dealer-defended call/put walls
   - **GEX Flip Breakout** — Buy options when the flip point breaks and dealers start amplifying
-  - **Vanna/Charm Drift** — Ride post-IV-event drift toward high OI clusters
+  - **Vanna/Charm Drift** — Ride post-IV-event **drift** from greeks toward large OI clusters (contrast with strict **pinning**, which needs long-gamma dominance)
 - **Trade Guidance**: Structure recommendations, greek targets, exit rules, and risk management
 - **Visual Dashboard**: GEX profile charts, OI distribution, decision tree, key levels
 
@@ -29,7 +31,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Backend runs on http://localhost:8000
+Backend runs on http://localhost:8000 by default. If you run the API on another port (for example **8010** to match a personal `commands.txt` snippet), set the same port everywhere: **`DE_API_PORT`** (or run uvicorn manually), **`VITE_API_PROXY_TARGET`** for the Vite dev proxy, and **`PT_API_BASE`** for PaperTrader / cron (`http://localhost:PORT/api`). See repo-root **`.env.example`**.
 
 ### 2. Frontend (Vite)
 
@@ -44,6 +46,10 @@ Frontend runs on http://localhost:5173 (proxies API calls to backend)
 ### 3. Use It
 
 Open http://localhost:5173, type a ticker (SPY, QQQ, AAPL, etc.), and hit Analyze.
+
+## Continuous integration
+
+On pushes and pull requests to `main` or `master`, [GitHub Actions](.github/workflows/ci.yml) installs `backend/requirements.txt`, runs **pytest**, then runs **`npm ci`** and **`npm run build`** in `frontend/`.
 
 ## Paper Trader (Forward Testing)
 
@@ -78,6 +84,15 @@ python -m papertrader history --limit 100
 # Print crontab snippet for automated scheduling
 python -m papertrader cron
 ```
+
+### Scan liquidity & hedge pressure (optional)
+
+Newer dealer-map payloads include **`hedge_context`**: an Amihud-style **liquidity** proxy (stored scaled as **liquidity_proxy**, interpret as ×1e6 in UI copy) and **hedge_pressure_proxy**. The PaperTrader scanner writes these to `scans` when the API returns them.
+
+- **Environment:** `PT_BAR_SOURCE` — `auto` (Polygon when `POLYGON_API_KEY` / `MASSIVE_API_KEY` is set), `polygon`, or `yf` (yfinance only). Details in `.env.example`.
+- **Backfill:** `python -m papertrader backfill-liquidity-hedge --help` — fills missing columns from embedded `full_response.hedge_context` or recomputes from daily bars through the scan calendar day. For a full historical refresh after metric or bar-source changes, use pacing flags and e.g. `--all-profiles --force --recompute-always` (slow); `PT_BAR_SOURCE=yf` avoids Polygon rate limits on large runs. Recomputed history uses bars only through each scan’s calendar date (no lookahead); numbers may differ slightly from what an older live dealer-map response stored for that day (window length, vendor data revisions).
+- **Where it shows up:** dealer-map strip (live); `insights`, `significance-report`, `calendar-report`, and `generalized-report` include scan Amihud/HPP quartile strata when the DB columns are populated. For interaction tests: `alignment-report --prespec-liquidity-regime` (bundled GEX×liquidity cells) and `fingerprint-corr --by-profile-liquidity` when comparing profiles on the same machine.
+- **Explicit cohort filters:** `cohort-eval` applies JSON AND-rules on fingerprint dimensions (same pooled Amihud/HPP quartiles as alignment / fingerprint-corr) and prints baseline vs filtered **n, win rate, P&L% and dollars**. Example: `python -m papertrader cohort-eval --baseline-only --rules papertrader/cohort_rules_example.json`. Details: `papertrader/analysis/README.md`.
 
 ### Statistical Analysis (Charts)
 
@@ -134,16 +149,19 @@ For experiment governance, track all challenger-rule changes in:
 
 ## Data Sources
 
-All data is free — no API keys required:
+Most data is free — no API keys required for the default path:
 
-- **yfinance**: Options chain data (OI, greeks, IV, all strikes/expirations)
-- **Calculated locally**: GEX, max pain, flip point, charm, vanna all computed from the raw chain
+- **yfinance**: Options chain data (OI, greeks, IV, all strikes/expirations). **OI is the limiting factor:** it updates once per session (after the prior close is published), not tick-by-tick or continuously through the day. Volume and IV refresh more often; **dealer positioning metrics do not** unless you plug in a vendor that supplies intraday OI.
+- **Calculated locally**: GEX, max pain, flip point, charm, vanna all computed from the raw chain — so they inherit whatever staleness is in the OI snapshot.
+
+If you need this to be useful for same-day hedging-flow reads, plan on a paid options data feed with **intraday OI** (or at minimum multiple refreshes per session) and wire it into `options_data.py` in place of yfinance's chain.
 
 ## Architecture
 
 ```
 backend/
   main.py                FastAPI app — orchestrates all modules into /api/dealer-map
+  liquidity_hedge_metrics.py  Scan-time Amihud proxy + hedge pressure (`hedge_context` on dealer-map)
   options_data.py        yfinance data fetching (chains, expirations, price history)
   gex_calculator.py      GEX profile, charm, vanna, entropy (Black-Scholes)
   gamma_reynolds.py      Gamma Reynolds Number + phase transition detection
@@ -164,8 +182,9 @@ frontend/
 
 papertrader/
   __main__.py            CLI entry point (scan / check / status / report / analyze / history)
-  config.py              API URL, default watchlist, cron templates
-  db.py                  SQLite schema + CRUD (scans, trades, price_checks)
+  config.py              API URL, default watchlist, cron templates, `PT_BAR_SOURCE`
+  db.py                  SQLite schema + CRUD (scans incl. liquidity_proxy / hedge_pressure_proxy, trades, price_checks)
+  backfill_liquidity_hedge.py  Backfill scan liquidity + HPP from JSON or bar history
   scanner.py             Calls DealersEdge API, parses exit rules, opens paper trades
   monitor.py             Checks open trades for target/stop/expiry/time exits
   pricing.py             Live option mid-prices via yfinance
@@ -197,8 +216,8 @@ and buy dips, *dampening* price action.
 
 ```
 Gamma:  γ = φ(d₁) / (S · σ · √T)
-Charm:  ∂Δ/∂t — measures how delta decays as time passes (pin drift)
-Vanna:  ∂Δ/∂σ — measures how delta shifts when IV changes (vol-driven drift)
+Charm:  ∂Δ/∂t — delta decay into expiry; combines with **gamma sign**: with **long gamma**, helps **compress** toward strikes (pin mechanics); with **short gamma**, works the **opposite** way (amplification / “anti-pin” near large short strikes)
+Vanna:  ∂Δ/∂σ — how delta shifts when IV changes (vol-driven drift)
 ```
 
 Dealer GEX per strike:
@@ -211,14 +230,14 @@ Put GEX  = −γ · OI · 100 · S      (dealers short puts → forced to sell o
 - **GEX Flip Point** — the strike where net dealer gamma crosses zero; above it dealers
   dampen, below it they amplify. Computed via linear interpolation of the nearest
   zero-crossing to spot.
-- **Call/Put Walls** — strikes with the highest open interest concentration. In positive
-  gamma regimes these act as magnets; in negative gamma they become breakout accelerators.
+- **Call/Put Walls** — strikes with the highest open interest concentration. In **positive**
+  gamma they often behave as **magnets** (stabilization); in **negative gamma** they tend to
+  **amplify** breaks — avoid calling either “pinning” unless you mean **long-gamma** hedge-toward-strike flows.
 - **Gamma Channel** — the floor and ceiling of the high-gamma zone, defining the
   expected trading range for the expiration.
 
 **References:**
-- Barbon & Buraschi, ["Gamma Fragility"](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3725454) (2021) — formalizes how dealer hedging
-  creates mechanical supply/demand at gamma-heavy strikes.
+- Barbon & Buraschi, ["Gamma Fragility"](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3725454) (working paper; widely cited) — gamma imbalance, intraday dynamics, fragility. **Broader context:** [Research collection: dealer hedging flows](#research-collection-dealer-hedging-flows-literature).
 
 ---
 
@@ -530,3 +549,92 @@ Here is how we've validated (or revised) each against modern research:
 | **Kelly criterion** | Kelly (1956) | **Timeless** | Mathematical optimality result. We use half-Kelly with regime-based scaling — standard risk management practice. |
 | **Avellaneda & Stoikov** | Avellaneda & Stoikov (2008) | **Confirmed** | Remains the foundational market-making model. Actively used and extended in academic and industry research (Guéant et al. 2013, Cartea et al. 2015). |
 | **Market microstructure** | Bouchaud et al. (2018) | **Current** | Published 2018; Bouchaud's group at CFM continues active research. The book is a standard reference for quantitative trading programs. |
+
+---
+
+## Research collection: dealer hedging flows (literature)
+
+This section is our **in-repo brief**: mechanisms academics emphasize, how they relate to **positive vs negative GEX regime** language in this tool, and **which papers to weight** when improving **truthiness** (not overclaiming) and **effectiveness** (testable predictions). Educational only — not investment advice.
+
+### The economic setup (all papers share this skeleton)
+
+1. **Listed options are in zero net supply.** End-users collectively hold a net position; **market makers** sit on the other side of the aggregate book (up to clearing/conventions).
+2. **Delta neutrality is dynamic.** To remain roughly delta-neutral, MMs trade the **underlying** (or futures) when spot moves. The **size** of required hedging trades depends on **gamma** (how fast delta moves with spot).
+3. **So spot feels an extra demand/supply channel** that is **mechanical** (risk limits + hedging rules), **state-dependent** (where spot is relative to strikes and time to expiry), and **liquidity-constrained** (impact is larger when the stock or future cannot absorb flow cheaply).
+
+“Exploiting dealer hedging” in a disciplined sense means: **map that state-dependence**, not **assume intent** or a single magic level.
+
+### Topic 1 — Gamma sign: dampening vs amplification (“pin mechanics” vs not)
+
+**Intuition (first-order):**
+
+- When the **dealer book is long gamma** (in aggregate / locally; our **positive GEX regime** is the operational proxy), delta-hedging tends to **sell into strength and buy weakness** → **stabilizing** path, and **together with charm** near expiry this is the rigorous sense in which people say **pinning / compression toward strikes**.
+- When the book is **short gamma** (**negative GEX regime**), hedging tends to **buy into rallies and sell into selloffs** relative to the pre-move hedge → **feedback** that **amplifies** moves. This is **not** “pinning” in the same mechanical sense; social media often mislabels **price near a big strike** as a pin when the dominant effect is **short-gamma amplification** or **liquidity stress**.
+
+**Papers that formalize this channel:**
+
+| Paper | What it adds (deep point) |
+|--------|---------------------------|
+| **Barbon & Buraschi**, *Gamma Fragility* ([SSRN 3725454](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3725454)) | **Pre-trade gamma imbalance** in options interacts with **underlying illiquidity** to explain **intraday momentum vs reversal** and links to **fragility** (including crash-like dynamics). Takeaway: **sign of gamma** alone is incomplete — **liquidity** scales whether the spot market can absorb hedge flow without large impact. |
+| **Anderegg, Ulmann & Sornette** (2022), *J. International Money and Finance* ([EconPapers](https://econpapers.repec.org/article/eeejimfin/v_3a124_3ay_3a2022_3ai_3ac_3as0261560622000304.html)) | Theory + empirics: **OMM gamma sign** is tied to **spot volatility** (short-gamma positioning ↔ higher volatility in their setting). Useful **academic cousin** to our “+GEX dampen / −GEX amplify” narrative — different market (FX) but same **hedging-friction** logic. |
+
+**For this repo:** Strengthen truthiness by treating **regime + liquidity** as a pair in copy and, longer term, in **PaperTrader** diagnostics (e.g. signal strength conditional on a simple illiquidity proxy).
+
+### Topic 2 — Who consumes underlying liquidity when?
+
+**O’Donovan, Yu & Zhang** — *Option Market Maker Hedging and Stock Market Liquidity* ([SSRN 4567604](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4567604)):
+
+- Uses data that **separates market-makers from other traders**.
+- Core result (**intuition**): **MM net short** options → hedging **demands** liquidity from the stock (**destabilizing** stress possible); **net long** → hedging **supplies** stabilizing flow.
+- **Deep point:** Same gamma story **bites harder** when **liquidity supply** in the equity is limited — aligns with Barbon–Buraschi’s emphasis on **interaction** with illiquidity, but in **equity** microstructure language.
+
+**For this repo:** Justifies UI/educational text like **“negative gamma + thin liquidity = worst-case path risk”** without anthropomorphizing dealers.
+
+### Topic 3 — How large can index / 0DTE hedging be?
+
+**Amaya, Garcia-Ares, Pearson & Vasquez** — *0DTE Index Options and Market Volatility: How Large is Their Impact?* ([SSRN 5113405](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5113405); Cboe research circle):
+
+- **Proprietary** information on **OMM positioning / gamma** in **SPX 0DTE**.
+- **Function:** Quantify **upper bounds / realistic magnitude** of **volatility** effects from **hedge rebalancing**, not just sign stories.
+- **Deep point:** Short-dated options have **large gamma per notional** → **rebalancing needs** can be big **intraday**; still not the same as “dealers control the close every day.”
+
+**For this repo:** Use for **humility**: index-like, ultra-short-DTE days are where **magnitude** arguments are strongest; single-name mid-DTE may be **smaller** or **noisier**.
+
+### Topic 4 — A surface-based “hedging pressure” factor (benchmark)
+
+**Tang, Zhou & Zhou** — *Option Expected Hedging Demand* ([SSRN 4729672](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4729672)):
+
+- Builds **expected hedging demand (EHD)** from **real-time option data** (spot elasticity of delta, etc.).
+- **Empirical claim:** EHD **predicts cross-sectional stock returns** over **several days**, then **reverses**.
+- **Deep point:** Separates **mechanism** (everyone agrees MMs hedge) from **predictability** (must be **estimated**; can be **weak** or **unstable** post-publication).
+
+**For this repo:** If you add **external validation**, EHD is a natural **benchmark** (“does our regime flag add information beyond EHD?”) using **PaperTrader** or offline research notebooks — not something to paste into production as alpha without testing.
+
+### Topic 5 — Foundations: why customer demand moves option prices at all
+
+**Garleanu, Pedersen & Poteshman** — *Demand-Based Option Pricing* ([*Review of Financial Studies* 2009](https://ideas.repec.org/a/oup/rfinst/v22y2009i10p4259-4299.html)):
+
+- **Imperfect hedging** → **net demand** affects **option prices** and **cross-section / smile** (classic **index put** puzzle angle).
+- **Deep point:** Large **customer** structures (collars, put spreads) are **boring buy-and-hold** from the fund side but still imply **risk absorption** by intermediaries — **not** “manipulation,” consistent with how we phrase **institutional** flows.
+
+**For this repo:** Best for **README philosophy** and **explaining skew / richness**, less for **intraday GEX dashboard** tuning.
+
+### Topic 6 — Microstructure / spreads (secondary for v1 product)
+
+**Chang, Chung & Yu** (2014), *Journal of Financial Markets* — inventory, hedging costs, spreads ([EconPapers](http://econpapers.repec.org/RePEc:eee:finmar:v:18:y:2014:i:c:p:25-48)):
+
+- **Function:** Explains **why** hedging is **costly** and **discrete** at the **market-maker** level.
+- **For this repo:** Relevant if you later optimize **execution** or **per-name spread filters**; less central than **aggregate gamma-regime** papers above.
+
+---
+
+### Priority ladder (what to focus on, in order)
+
+1. **Barbon–Buraschi + Anderegg–Ulmann–Sornette** — **Truthiness** for **gamma sign** language; **liquidity interaction**; avoids bogus “pin” claims under **short gamma**.
+2. **O’Donovan–Yu–Zhang** — **Truthiness** for **spot liquidity stress** alongside regime.
+3. **Amaya et al. (2025)** — **Truthiness** on **magnitude** for **index / 0DTE**; calibrates hype.
+4. **Tang–Zhou–Zhou (EHD)** — **Effectiveness**: optional **out-of-model benchmark** for predictive audits.
+5. **Garleanu–Pedersen–Poteshman** — **Foundations** / education; **skew and demand**, not intraday plumbing.
+6. **Chang–Chung–Yu** — **Execution** / micro; **later**.
+
+**Bottom line (same as our working stance):** use **(gamma regime × liquidity horizon)** as the spine; use **Amaya-type** evidence to **right-size** index claims; use **EHD-style** factors only as **benchmarks** until **PaperTrader** (or research code) proves incremental value.
